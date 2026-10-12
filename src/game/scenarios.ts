@@ -2,32 +2,39 @@ import type { SimulationOptions } from './sim/simulation.ts';
 
 /**
  * Fixed starting situations for end-to-end tests, selected with `?scenario=<name>`.
- * They only exist in the e2e build: in any other build `scenarioFromQuery` returns
+ * They only exist in the e2e build: in any other build `testOptionsFromQuery` returns
  * undefined and this table is tree-shaken away. Gameplay still runs through real input.
  */
 const E2E_SCENARIOS: Record<string, SimulationOptions> = {
+  /** The player alone: no enemies and no spawner (movement and weapon tests). */
+  'open-sea': { spawner: false },
   /** A chaser straight ahead of the player, in its line of fire. */
   'chaser-ahead': {
+    spawner: false,
     playerStart: { x: 800, y: 700, heading: 0 },
     enemies: [{ kind: 'chaser', x: 800, y: 200, heading: Math.PI }],
   },
   /** A chaser that has to turn towards the player before ramming it. */
   'chaser-flank': {
+    spawner: false,
     playerStart: { x: 800, y: 450, heading: 0 },
     enemies: [{ kind: 'chaser', x: 300, y: 750, heading: 0 }],
   },
   /** A chaser with the grass island between it and the player, head-on. */
   'chaser-behind-island': {
+    spawner: false,
     playerStart: { x: 800, y: 300, heading: 0 },
     enemies: [{ kind: 'chaser', x: 100, y: 300, heading: Math.PI / 2 }],
   },
   /** A shooter far ahead of the player, outside its attack range. */
   'shooter-far': {
+    spawner: false,
     playerStart: { x: 800, y: 800, heading: 0 },
     enemies: [{ kind: 'shooter', x: 800, y: 100, heading: Math.PI }],
   },
   /** Both enemy types at once, for visual checks. */
   skirmish: {
+    spawner: false,
     playerStart: { x: 800, y: 450, heading: 0 },
     enemies: [
       { kind: 'chaser', x: 150, y: 800, heading: 0 },
@@ -38,8 +45,13 @@ const E2E_SCENARIOS: Record<string, SimulationOptions> = {
   },
 };
 
-export function scenarioFromQuery(search: string): SimulationOptions | undefined {
-  return import.meta.env.MODE === 'e2e'
-    ? E2E_SCENARIOS[new URLSearchParams(search).get('scenario') ?? '']
-    : undefined;
+/** Test-only match options from the URL: `?scenario=<name>` and/or `?seed=<uint32>`. */
+export function testOptionsFromQuery(search: string): SimulationOptions | undefined {
+  if (import.meta.env.MODE !== 'e2e') return undefined;
+  const params = new URLSearchParams(search);
+  const scenario = E2E_SCENARIOS[params.get('scenario') ?? ''];
+  const seedParam = params.get('seed');
+  const seed = seedParam !== null && /^\d+$/.test(seedParam) ? Number(seedParam) >>> 0 : undefined;
+  if (!scenario && seed === undefined) return undefined;
+  return { ...scenario, ...(seed !== undefined && { seed }) };
 }

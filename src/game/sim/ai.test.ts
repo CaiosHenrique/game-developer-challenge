@@ -61,6 +61,7 @@ for (const kind of ['chaser', 'shooter'] as const) {
     for (const player of PLAYER_POSITIONS) {
       for (const start of edgePositions()) {
         const sim = new Simulation(DEFAULT_GAME_CONFIG, {
+          spawner: false,
           playerStart: { ...player, heading: 0 },
           enemies: [{ kind, ...start, heading: 0 }],
         });
@@ -85,6 +86,7 @@ for (const kind of ['chaser', 'shooter'] as const) {
 test('an enemy overlapping an island is pushed out of it in the next step', () => {
   // Grass island collider spans x 312..548; this chaser's hull starts inside its right shore.
   const sim = new Simulation(DEFAULT_GAME_CONFIG, {
+    spawner: false,
     playerStart: { x: 800, y: 300, heading: 0 },
     enemies: [{ kind: 'chaser', x: 560, y: 300, heading: Math.PI / 2 }],
   });
@@ -98,6 +100,7 @@ test('without obstacle feelers, the unstuck manoeuvre alone gets a chaser around
   config.enemies.ai.feelerLength = 0; // feelers see nothing
   // Head-on: the grass island lies exactly between the chaser and the player.
   const sim = new Simulation(config, {
+    spawner: false,
     playerStart: { x: 800, y: 300, heading: 0 },
     enemies: [{ kind: 'chaser', x: 100, y: 300, heading: Math.PI / 2 }],
   });

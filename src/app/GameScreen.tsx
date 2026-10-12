@@ -7,7 +7,7 @@ import {
 } from '../game/assets.ts';
 import { DEFAULT_GAME_CONFIG } from '../game/config.ts';
 import { GameRuntime } from '../game/GameRuntime.ts';
-import { scenarioFromQuery } from '../game/scenarios.ts';
+import { testOptionsFromQuery } from '../game/scenarios.ts';
 
 type LoadState =
   { status: 'loading' } | { status: 'error' } | { status: 'ready'; textures: GameTextures };
@@ -72,7 +72,7 @@ function GameCanvas({ textures }: { textures: GameTextures }) {
     const debugColliders = new URLSearchParams(window.location.search).get('debug') === 'colliders';
     const runtime = new GameRuntime(host, textures, DEFAULT_GAME_CONFIG, {
       debugColliders,
-      simulation: scenarioFromQuery(window.location.search),
+      simulation: testOptionsFromQuery(window.location.search),
     });
     runtime.start().catch(() => {
       runtime.destroy();

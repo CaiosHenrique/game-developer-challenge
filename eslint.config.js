@@ -34,10 +34,16 @@ export default tseslint.config(
           patterns: ['**/GameRuntime*', '**/assets*', '**/input*', '**/app/**'],
         },
       ],
-      // Randomness must come from the simulation's seeded generator, never Math.random.
+      // Determinism: randomness only from the seeded simulation RNG, time only from ticks.
       'no-restricted-properties': [
         'error',
         { object: 'Math', property: 'random', message: 'Use the seeded simulation RNG.' },
+      ],
+      'no-restricted-globals': [
+        'error',
+        { name: 'Date', message: 'Simulation time is measured in ticks.' },
+        { name: 'performance', message: 'Simulation time is measured in ticks.' },
+        { name: 'crypto', message: 'Use the seeded simulation RNG.' },
       ],
     },
   },

@@ -1,4 +1,4 @@
-import { ARENA_BOUNDS, ISLAND_COLLIDERS, PLAYER_START } from '../arena.ts';
+import { ARENA_BOUNDS, ISLAND_COLLIDERS, PLAYER_START, SPAWN_POINTS } from '../arena.ts';
 import { secondsToTicks, type EnemyConfig, type GameConfig, type WeaponConfig } from '../config.ts';
 import { enemyControls, headingTowards, wrapAngle, type Enemy, type EnemyKind } from './ai.ts';
 import {
@@ -10,6 +10,8 @@ import {
   type Ship,
   type ShipControls,
 } from './ships.ts';
+import { Rng } from './rng.ts';
+import { Spawner } from './spawner.ts';
 import {
   createShot,
   moveProjectile,
@@ -47,10 +49,17 @@ export type DestroyCause = 'playerFire' | 'ramming';
 export type EnemyPlacement = { kind: EnemyKind; x: number; y: number; heading: number };
 
 export type SimulationOptions = {
+  /** Seed of the simulation's random generator: the same seed replays the same match. */
+  seed?: number;
   playerStart?: { x: number; y: number; heading: number };
   /** Enemies present when the match starts (used by fixed test scenarios). */
   enemies?: readonly EnemyPlacement[];
+  /** Spawns enemies over time (default true; fixed test scenarios turn it off). */
+  spawner?: boolean;
 };
+
+/** Seed used when none is given (tests); the game passes a fresh seed for every match. */
+export const DEFAULT_SEED = 1;
 
 /** Facts produced by a step, consumed by the renderer for visual effects only. */
 export type SimEvent =
@@ -80,6 +89,7 @@ export type SimEvent =
  *    projectiles in flight
  * 7. firing: player, then living shooters (by id); new projectiles move from the next step
  * 8. destroyed enemies are removed
+ * 9. spawning: a new enemy appears at a valid point; it acts from the next step
  */
 export class Simulation {
   readonly player: PlayerShip;
@@ -101,6 +111,9 @@ export class Simulation {
     ship: 0,
     ownerDestroyed: 0,
   };
+  readonly seed: number;
+  readonly spawner: Spawner | null;
+  private readonly rng: Rng;
   private nextProjectileId = 1;
   private nextEnemyId = 1;
   private events: SimEvent[] = [];
@@ -122,6 +135,9 @@ export class Simulation {
       maxHp: config.player.maxHp,
     };
     this.dt = 1 / config.simulation.stepsPerSecond;
+    this.seed = (options.seed ?? DEFAULT_SEED) >>> 0;
+    this.rng = new Rng(this.seed);
+    this.spawner = options.spawner === false ? null : new Spawner(config, this.rng, SPAWN_POINTS);
     for (const placement of options.enemies ?? []) this.addEnemy(placement);
   }
 
@@ -229,7 +245,21 @@ export class Simulation {
 
     // 8. Cleanup.
     this.enemies = this.enemies.filter((enemy) => enemy.alive);
+
+    // 9. Spawning.
+    this.spawner?.update(
+      this.tick,
+      this.player,
+      playerConfig.hull,
+      this.enemies.map((enemy) => ({ ship: enemy, hull: this.enemyConfig(enemy.kind).hull })),
+      (kind, x, y, heading) => this.addEnemy({ kind, x, y, heading }).id,
+    );
     this.tick += 1;
+  }
+
+  /** Internal state of the random generator (for determinism checks). */
+  get rngState(): number {
+    return this.rng.currentState;
   }
 
   /** Returns and clears the events produced since the last call. */

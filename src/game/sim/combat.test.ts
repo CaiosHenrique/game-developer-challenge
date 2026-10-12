@@ -24,8 +24,9 @@ function fastGuns(): GameConfig {
   return config;
 }
 
+/** Fixed placements only: the spawner is off so no other enemy appears. */
 function simulation(options: SimulationOptions, config: GameConfig = DEFAULT_GAME_CONFIG) {
-  return new Simulation(config, options);
+  return new Simulation(config, { spawner: false, ...options });
 }
 
 test('a projectile damages only the first ship along its path, exactly once', () => {

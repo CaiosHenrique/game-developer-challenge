@@ -45,3 +45,18 @@ export const ISLAND_COLLIDERS: readonly Aabb[] = ISLANDS.map((island) => {
 });
 
 export const PLAYER_START = { x: 800, y: 450, heading: 0 };
+
+/**
+ * Candidate enemy spawn points, near the arena edges and clear of every island for a hull
+ * in any orientation (validated by a unit test).
+ */
+export const SPAWN_POINTS: readonly { x: number; y: number }[] = [
+  ...[150, 500, 800, 1100, 1450].flatMap((x) => [
+    { x, y: 70 },
+    { x, y: 830 },
+  ]),
+  ...[250, 450, 650].flatMap((y) => [
+    { x: 70, y },
+    { x: 1530, y },
+  ]),
+];

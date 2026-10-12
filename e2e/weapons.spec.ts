@@ -26,7 +26,7 @@ test.describe('player weapons', () => {
 
   test.beforeEach(async ({ page }) => {
     problems = collectProblems(page);
-    await startGame(page);
+    await startGame(page, '?scenario=open-sea');
   });
 
   test.afterEach(() => {

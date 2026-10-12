@@ -42,7 +42,9 @@ export class GameRuntime {
     private readonly config: GameConfig,
     private readonly options: GameRuntimeOptions = {},
   ) {
-    this.simulation = new Simulation(config, options.simulation);
+    // Randomness enters the simulation only through its seed, chosen here per match.
+    const seed = options.simulation?.seed ?? crypto.getRandomValues(new Uint32Array(1))[0]!;
+    this.simulation = new Simulation(config, { ...options.simulation, seed });
   }
 
   async start(): Promise<void> {
@@ -129,6 +131,10 @@ export class GameRuntime {
   private snapshot(): GameStateSnapshot {
     const { player, enemies, projectiles } = this.simulation;
     return {
+      seed: this.simulation.seed,
+      rngState: this.simulation.rngState,
+      spawns: this.simulation.spawner?.spawns.map((record) => ({ ...record })) ?? [],
+      spawnStats: this.simulation.spawner?.getStats() ?? null,
       tick: this.simulation.tick,
       elapsed: this.simulation.elapsed,
       player: { ...player, hull: hullCircles(player, this.config.player.hull) },

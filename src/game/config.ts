@@ -81,6 +81,20 @@ export type GameConfig = {
       unstuckSeconds: number;
     };
   };
+  spawn: {
+    /** Time between two scheduled spawns (the Options screen will expose it). */
+    intervalSeconds: number;
+    /** Time before the first scheduled spawn. */
+    firstDelaySeconds: number;
+    /** A spawn point closer than this to the player is not used. */
+    minDistanceFromPlayer: number;
+    /** A scheduled spawn is skipped while this many enemies are alive. */
+    maxAlive: number;
+    /** Relative odds of each enemy kind once the opening kinds have spawned. */
+    weights: Record<'chaser' | 'shooter', number>;
+    /** Kinds of the first spawns, in order, so every match meets both enemy types. */
+    openingKinds: readonly ('chaser' | 'shooter')[];
+  };
   weapons: {
     front: WeaponConfig;
     /** Used by both the left and the right broadside (each with its own cooldown). */
@@ -130,6 +144,14 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
       stuckSpeedRatio: 0.1,
       unstuckSeconds: 0.8,
     },
+  },
+  spawn: {
+    intervalSeconds: 4,
+    firstDelaySeconds: 2,
+    minDistanceFromPlayer: 450,
+    maxAlive: 8,
+    weights: { chaser: 1, shooter: 1 },
+    openingKinds: ['chaser', 'shooter'],
   },
   weapons: {
     front: {
