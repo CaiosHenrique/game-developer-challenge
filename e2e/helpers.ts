@@ -24,6 +24,13 @@ export function getState(page: Page): Promise<GameStateSnapshot> {
   return page.evaluate(() => window.__pirateTest!.getState());
 }
 
+export async function step(page: Page, count: number): Promise<GameStateSnapshot> {
+  return page.evaluate((steps) => {
+    window.__pirateTest!.step(steps);
+    return window.__pirateTest!.getState();
+  }, count);
+}
+
 export async function advance(page: Page, ms: number): Promise<GameStateSnapshot> {
   return page.evaluate((duration) => {
     window.__pirateTest!.advance(duration);

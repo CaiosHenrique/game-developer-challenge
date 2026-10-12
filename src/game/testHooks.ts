@@ -1,11 +1,19 @@
-import type { Ship } from './sim/simulation.ts';
+import type { RendererStats } from './render/GameRenderer.ts';
 import type { Aabb, Circle } from './sim/geometry.ts';
+import type { Ship } from './sim/simulation.ts';
+import type { Projectile, ProjectileRemoval, WeaponSlot } from './sim/weapons.ts';
 
 export type GameStateSnapshot = {
+  tick: number;
   elapsed: number;
   player: Ship & { hull: Circle[] };
+  projectiles: Projectile[];
+  weaponReadyAt: Record<WeaponSlot, number>;
+  shotsFired: Record<WeaponSlot, number>;
+  projectilesRemoved: Record<ProjectileRemoval, number>;
   islands: Aabb[];
   arena: Aabb;
+  render: RendererStats | null;
 };
 
 /**
@@ -14,9 +22,11 @@ export type GameStateSnapshot = {
  */
 export type PirateTestApi = {
   getState(): GameStateSnapshot;
-  /** Stops the real-time clock: the simulation only advances through `advance()`. */
+  /** Stops the real-time clock: the simulation only advances through `step`/`advance`. */
   setManualClock(enabled: boolean): void;
-  /** Advances the simulation by whole fixed steps covering `ms` milliseconds. */
+  /** Runs exactly `count` simulation steps. */
+  step(count: number): void;
+  /** Runs the whole number of steps closest to `ms` milliseconds. */
   advance(ms: number): void;
 };
 

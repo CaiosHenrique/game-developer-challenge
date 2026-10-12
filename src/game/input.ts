@@ -10,6 +10,9 @@ const KEY_BINDINGS: Record<string, Action> = {
   ArrowLeft: 'turnLeft',
   KeyD: 'turnRight',
   ArrowRight: 'turnRight',
+  Space: 'fireFront',
+  KeyQ: 'fireLeft',
+  KeyE: 'fireRight',
 };
 
 /**
@@ -17,7 +20,14 @@ const KEY_BINDINGS: Record<string, Action> = {
  * and releases every key when the window loses focus.
  */
 export class KeyboardInput {
-  readonly state: InputState = { forward: false, turnLeft: false, turnRight: false };
+  readonly state: InputState = {
+    forward: false,
+    turnLeft: false,
+    turnRight: false,
+    fireFront: false,
+    fireLeft: false,
+    fireRight: false,
+  };
   private readonly pressed = new Set<string>();
   private target: Window | null = null;
 

@@ -1,20 +1,11 @@
-import { Application, Container, Graphics, Sprite, TilingSprite, type Ticker } from 'pixi.js';
-import {
-  ARENA_BOUNDS,
-  ISLAND_COLLIDERS,
-  ISLAND_FRAMES,
-  ISLANDS,
-  WORLD_HEIGHT,
-  WORLD_WIDTH,
-} from './arena.ts';
-import { getFrame, SHIP_FRAMES, type GameTextures } from './assets.ts';
+import { Application, type Ticker } from 'pixi.js';
+import { ARENA_BOUNDS, ISLAND_COLLIDERS, WORLD_HEIGHT, WORLD_WIDTH } from './arena.ts';
+import type { GameTextures } from './assets.ts';
 import type { GameConfig } from './config.ts';
 import { KeyboardInput } from './input.ts';
+import { GameRenderer } from './render/GameRenderer.ts';
 import { hullCircles, Simulation } from './sim/simulation.ts';
-import { installTestHooks } from './testHooks.ts';
-
-/** Ship sprites point down (+Y) in the source art; heading 0 points up. */
-const SHIP_SPRITE_ROTATION_OFFSET = Math.PI;
+import { installTestHooks, type GameStateSnapshot } from './testHooks.ts';
 
 export type GameRuntimeOptions = {
   /** Draws collision shapes on top of the scene (`?debug=colliders`). */
@@ -22,21 +13,20 @@ export type GameRuntimeOptions = {
 };
 
 /**
- * Owns the PixiJS application of one game screen and drives the simulation with a
- * fixed-step clock. `destroy()` may be called before the asynchronous `start()` finishes
- * (React Strict Mode mounts, unmounts and remounts effects), in which case `start()` tears
- * the application down as soon as `init()` resolves.
+ * Owns the PixiJS application of one game screen, the input and the fixed-step clock that
+ * drives the simulation. `destroy()` may be called before the asynchronous `start()`
+ * finishes (React Strict Mode mounts, unmounts and remounts effects), in which case
+ * `start()` tears the application down as soon as `init()` resolves.
  */
 export class GameRuntime {
   /** Number of initialized runtimes that were not destroyed yet (used to detect leaks). */
   static liveInstances = 0;
 
   private readonly app = new Application();
-  private readonly world = new Container();
   private readonly simulation: Simulation;
   private readonly keyboard = new KeyboardInput();
-  private playerSprite: Sprite | null = null;
-  private debugLayer: Graphics | null = null;
+  private renderer: GameRenderer | null = null;
+  /** Real time not yet simulated, in seconds. */
   private accumulator = 0;
   private manualClock = false;
   private initialized = false;
@@ -71,8 +61,13 @@ export class GameRuntime {
     this.initialized = true;
     GameRuntime.liveInstances += 1;
 
-    this.buildScene();
-    this.app.stage.addChild(this.world);
+    this.renderer = new GameRenderer(
+      this.textures,
+      this.config.player.hull,
+      this.options.debugColliders ?? false,
+    );
+    this.renderer.sync(this.simulation, [], 0);
+    this.app.stage.addChild(this.renderer.root);
     this.host.appendChild(this.app.canvas);
 
     this.resizeObserver = new ResizeObserver(() => this.fitToHost());
@@ -87,7 +82,9 @@ export class GameRuntime {
         this.manualClock = enabled;
         this.accumulator = 0;
       },
-      advance: (ms) => this.advance(ms / 1000),
+      step: (count) => this.runSteps(count),
+      advance: (ms) =>
+        this.runSteps(Math.round((ms / 1000) * this.config.simulation.stepsPerSecond)),
     });
   }
 
@@ -101,83 +98,45 @@ export class GameRuntime {
     this.keyboard.detach();
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
-    // Stops the ticker, removes the canvas and destroys the scene graph. Textures are shared
-    // between matches and stay in the asset cache.
+    // Stops the ticker, removes the canvas and destroys the scene graph, including pooled
+    // sprites. Textures are shared between matches and stay in the asset cache.
     this.app.destroy(true, { children: true });
+    this.renderer = null;
     GameRuntime.liveInstances -= 1;
   }
 
   private readonly onTick = (ticker: Ticker): void => {
+    const deltaSeconds = Math.min(ticker.deltaMS / 1000, this.config.simulation.maxFrameSeconds);
     if (!this.manualClock) {
-      this.advance(Math.min(ticker.deltaMS / 1000, this.config.simulation.maxFrameSeconds));
+      const stepSeconds = 1 / this.config.simulation.stepsPerSecond;
+      this.accumulator += deltaSeconds;
+      while (this.accumulator >= stepSeconds) {
+        this.simulation.step(this.keyboard.state);
+        this.accumulator -= stepSeconds;
+      }
     }
-    this.render();
+    this.renderer?.sync(this.simulation, this.simulation.drainEvents(), deltaSeconds);
   };
 
-  /** Runs as many fixed simulation steps as the elapsed time covers. */
-  private advance(seconds: number): void {
-    const step = this.config.simulation.stepSeconds;
-    this.accumulator += seconds;
-    // The epsilon absorbs floating-point error, so e.g. 500 ms is exactly 30 steps.
-    while (this.accumulator >= step - 1e-9) {
-      this.simulation.step(step, this.keyboard.state);
-      this.accumulator -= step;
-    }
+  /** Manual clock: runs an exact number of steps and refreshes the scene. */
+  private runSteps(count: number): void {
+    for (let index = 0; index < count; index += 1) this.simulation.step(this.keyboard.state);
+    this.renderer?.sync(this.simulation, this.simulation.drainEvents(), 0);
   }
 
-  private render(): void {
-    const player = this.simulation.player;
-    if (this.playerSprite) {
-      this.playerSprite.position.set(player.x, player.y);
-      this.playerSprite.rotation = player.heading + SHIP_SPRITE_ROTATION_OFFSET;
-    }
-    if (this.debugLayer) this.drawColliders(this.debugLayer);
-  }
-
-  private buildScene(): void {
-    const { ships, tiles, water } = this.textures;
-
-    this.world.addChild(
-      new TilingSprite({ texture: water, width: WORLD_WIDTH, height: WORLD_HEIGHT }),
-    );
-
-    for (const island of ISLANDS) {
-      const sprite = new Sprite({
-        texture: getFrame(tiles, ISLAND_FRAMES[island.kind]),
-        anchor: 0.5,
-      });
-      sprite.position.set(island.x, island.y);
-      this.world.addChild(sprite);
-    }
-
-    this.playerSprite = new Sprite({ texture: getFrame(ships, SHIP_FRAMES.player), anchor: 0.5 });
-    this.world.addChild(this.playerSprite);
-
-    if (this.options.debugColliders) {
-      this.debugLayer = new Graphics();
-      this.world.addChild(this.debugLayer);
-    }
-    this.render();
-  }
-
-  private drawColliders(graphics: Graphics): void {
-    graphics.clear();
-    for (const box of ISLAND_COLLIDERS) {
-      graphics.rect(box.minX, box.minY, box.maxX - box.minX, box.maxY - box.minY);
-    }
-    for (const circle of hullCircles(this.simulation.player, this.config.player.hull)) {
-      graphics.circle(circle.x, circle.y, circle.radius);
-    }
-    graphics.stroke({ width: 2, color: 0xff3366 });
-  }
-
-  private snapshot() {
-    const player = this.simulation.player;
+  private snapshot(): GameStateSnapshot {
+    const { player, projectiles } = this.simulation;
     return {
+      tick: this.simulation.tick,
       elapsed: this.simulation.elapsed,
       player: { ...player, hull: hullCircles(player, this.config.player.hull) },
+      projectiles: projectiles.map((projectile) => ({ ...projectile })),
+      weaponReadyAt: { ...this.simulation.weaponReadyAt },
+      shotsFired: { ...this.simulation.shotsFired },
+      projectilesRemoved: { ...this.simulation.projectilesRemoved },
       islands: ISLAND_COLLIDERS.map((box) => ({ ...box })),
       arena: { ...ARENA_BOUNDS },
+      render: this.renderer?.stats() ?? null,
     };
   }
 
@@ -185,11 +144,14 @@ export class GameRuntime {
   private fitToHost(): void {
     const width = this.host.clientWidth;
     const height = this.host.clientHeight;
-    if (width === 0 || height === 0) return;
+    if (width === 0 || height === 0 || !this.renderer) return;
 
     this.app.renderer.resize(width, height);
     const scale = Math.min(width / WORLD_WIDTH, height / WORLD_HEIGHT);
-    this.world.scale.set(scale);
-    this.world.position.set((width - WORLD_WIDTH * scale) / 2, (height - WORLD_HEIGHT * scale) / 2);
+    this.renderer.root.scale.set(scale);
+    this.renderer.root.position.set(
+      (width - WORLD_WIDTH * scale) / 2,
+      (height - WORLD_HEIGHT * scale) / 2,
+    );
   }
 }

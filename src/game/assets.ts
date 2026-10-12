@@ -17,7 +17,7 @@ type SheetName = 'ships' | 'tiles' | 'ui';
 
 /** Frames the game renders. A missing frame fails the load instead of drawing an empty sprite. */
 const REQUIRED_FRAMES: Record<SheetName, readonly string[]> = {
-  ships: Object.values(SHIP_FRAMES),
+  ships: [...Object.values(SHIP_FRAMES), 'cannon_ball', 'explosion_3'],
   tiles: Object.values(ISLAND_FRAMES),
   ui: [],
 };
