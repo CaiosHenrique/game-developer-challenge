@@ -43,6 +43,10 @@ export type EnemyConfig = {
 };
 
 export type GameConfig = {
+  match: {
+    /** Active play time of a match (the Options screen will expose it, 60 to 180 s). */
+    durationSeconds: number;
+  };
   simulation: {
     /** Fixed simulation rate. */
     stepsPerSecond: number;
@@ -103,6 +107,9 @@ export type GameConfig = {
 };
 
 export const DEFAULT_GAME_CONFIG: GameConfig = {
+  match: {
+    durationSeconds: 120,
+  },
   simulation: {
     stepsPerSecond: 60,
     maxFrameSeconds: 0.25,

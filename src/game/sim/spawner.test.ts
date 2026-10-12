@@ -32,8 +32,16 @@ function scriptedInput(tick: number): InputState {
   };
 }
 
+/**
+ * Spawner tests watch long matches: the player can neither sink nor run out of time, so the
+ * match end (tested separately) never interrupts what is being measured.
+ */
+const ENDLESS: GameConfig = structuredClone(DEFAULT_GAME_CONFIG);
+ENDLESS.match.durationSeconds = 3600;
+ENDLESS.player.maxHp = 1_000_000;
+
 function withSpawn(overrides: Partial<GameConfig['spawn']>): GameConfig {
-  const config = structuredClone(DEFAULT_GAME_CONFIG);
+  const config = structuredClone(ENDLESS);
   Object.assign(config.spawn, overrides);
   return config;
 }
@@ -53,6 +61,9 @@ function fullState(sim: Simulation) {
     shotsFired: sim.shotsFired,
     enemyShotsFired: sim.enemyShotsFired,
     projectilesRemoved: sim.projectilesRemoved,
+    phase: sim.phase,
+    endReason: sim.endReason,
+    endTick: sim.endTick,
     spawns: sim.spawner?.spawns,
     spawnStats: sim.spawner?.getStats(),
   });
@@ -93,8 +104,8 @@ test('the spawn configuration cannot place an enemy within immediate firing reac
 });
 
 test('spawns follow the fixed cadence exactly', () => {
-  const sim = new Simulation(DEFAULT_GAME_CONFIG, { seed: 7 });
-  while (sim.tick < 20 * SPS) sim.step(IDLE);
+  const sim = new Simulation(ENDLESS, { seed: 7 });
+  while (sim.tick < 20 * SPS && sim.phase === 'running') sim.step(IDLE);
   const spawns = sim.spawner!.spawns;
   assert.ok(spawns.length >= 5);
   spawns.forEach((record, index) => {
@@ -105,8 +116,8 @@ test('spawns follow the fixed cadence exactly', () => {
 
 test('every match opens with a chaser and then a shooter', () => {
   for (let seed = 1; seed <= 50; seed += 1) {
-    const sim = new Simulation(DEFAULT_GAME_CONFIG, { seed });
-    while (sim.spawner!.spawns.length < 2) sim.step(IDLE);
+    const sim = new Simulation(ENDLESS, { seed });
+    while (sim.spawner!.spawns.length < 2 && sim.phase === 'running') sim.step(IDLE);
     assert.deepEqual(
       sim.spawner!.spawns.map((record) => record.kind),
       ['chaser', 'shooter'],
@@ -119,9 +130,9 @@ test('enemies appear far from the player and clear of every living hull', () => 
   const { minDistanceFromPlayer } = DEFAULT_GAME_CONFIG.spawn;
   let checked = 0;
   for (let seed = 1; seed <= 20; seed += 1) {
-    const sim = new Simulation(DEFAULT_GAME_CONFIG, { seed });
+    const sim = new Simulation(ENDLESS, { seed });
     let known = 0;
-    while (sim.tick < 120 * SPS) {
+    while (sim.tick < 120 * SPS && sim.phase === 'running') {
       sim.step(scriptedInput(sim.tick));
       const spawns = sim.spawner!.spawns;
       for (; known < spawns.length; known += 1) {
@@ -155,7 +166,7 @@ test('the alive cap skips scheduled spawns without moving the cadence', () => {
   });
   const sim = new Simulation(config, { seed: 3 });
   let mostAlive = 0;
-  while (sim.tick < 30 * SPS) {
+  while (sim.tick < 30 * SPS && sim.phase === 'running') {
     sim.step(IDLE);
     mostAlive = Math.max(mostAlive, sim.enemies.length);
   }
@@ -176,7 +187,7 @@ test('a deferred spawn appears once a point is valid, checked on that tick', () 
   for (let seed = 1; seed <= 10; seed += 1) {
     const config = withSpawn({ minDistanceFromPlayer: 5000 }); // no point is far enough
     const sim = new Simulation(config, { seed, playerStart: { x: 100, y: 450, heading: 0 } });
-    while (sim.tick < 200) sim.step(IDLE);
+    while (sim.tick < 200 && sim.phase === 'running') sim.step(IDLE);
     assert.equal(sim.spawner!.spawns.length, 0);
     assert.equal(sim.spawner!.getStats().deferredTicks, 200 - FIRST_TICK);
 
@@ -194,11 +205,11 @@ test('a pending spawn replaced by the next one keeps the cadence and the opening
   for (let seed = 1; seed <= 10; seed += 1) {
     const config = withSpawn({ minDistanceFromPlayer: 5000 });
     const sim = new Simulation(config, { seed });
-    while (sim.tick < 400) sim.step(IDLE); // scheduled at 120 (pending) and 360 (replaces it)
+    while (sim.tick < 400 && sim.phase === 'running') sim.step(IDLE); // scheduled at 120 (pending) and 360 (replaces it)
     assert.equal(sim.spawner!.getStats().replaced, 1);
 
     config.spawn.minDistanceFromPlayer = 450;
-    while (sim.spawner!.spawns.length < 2) sim.step(IDLE);
+    while (sim.spawner!.spawns.length < 2 && sim.phase === 'running') sim.step(IDLE);
     const [first, second] = sim.spawner!.spawns;
     assert.deepEqual([first!.kind, first!.scheduledTick, first!.spawnTick], ['chaser', 360, 400]);
     assert.deepEqual([second!.kind, second!.scheduledTick], ['shooter', 600], `seed ${seed}`);
@@ -213,7 +224,7 @@ test('kind weights decide the kinds after the opening ones', () => {
     const sim = new Simulation(withSpawn({ weights, intervalSeconds: 1, maxAlive: 50 }), {
       seed: 11,
     });
-    while (sim.tick < 40 * SPS) sim.step(IDLE);
+    while (sim.tick < 40 * SPS && sim.phase === 'running') sim.step(IDLE);
     const kinds = sim.spawner!.spawns.map((record) => record.kind);
     assert.deepEqual(kinds.slice(0, 2), ['chaser', 'shooter']);
     assert.ok(kinds.length > 10);
@@ -228,7 +239,8 @@ test('the same seed and inputs replay the same match; another seed does not', ()
   const play = (seed: number) => {
     const sim = new Simulation(DEFAULT_GAME_CONFIG, { seed });
     const checkpoints: unknown[] = [];
-    while (sim.tick < 120 * SPS) {
+    // Default config: the match may end (by time or by sinking); both runs must agree.
+    while (sim.tick < 120 * SPS && sim.phase === 'running') {
       sim.step(scriptedInput(sim.tick));
       if (sim.tick % (10 * SPS) === 0) checkpoints.push(fullState(sim));
     }

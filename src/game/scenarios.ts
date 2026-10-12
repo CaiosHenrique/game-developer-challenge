@@ -32,6 +32,15 @@ const E2E_SCENARIOS: Record<string, SimulationOptions> = {
     playerStart: { x: 800, y: 800, heading: 0 },
     enemies: [{ kind: 'shooter', x: 800, y: 100, heading: Math.PI }],
   },
+  /** The default match (spawner on), with a player that cannot sink: spawner observation. */
+  'endless-spawns': { playerHp: 1_000_000 },
+  /** A player with one ram's worth of health and a chaser about to ram it. */
+  'last-stand': {
+    spawner: false,
+    playerHp: 20,
+    playerStart: { x: 800, y: 450, heading: 0 },
+    enemies: [{ kind: 'chaser', x: 800, y: 250, heading: Math.PI }],
+  },
   /** Both enemy types at once, for visual checks. */
   skirmish: {
     spawner: false,
@@ -44,6 +53,11 @@ const E2E_SCENARIOS: Record<string, SimulationOptions> = {
     ],
   },
 };
+
+/** Test-only: `?clock=manual` starts every match on the manual (test-driven) clock. */
+export function testManualClockFromQuery(search: string): boolean {
+  return import.meta.env.MODE === 'e2e' && new URLSearchParams(search).get('clock') === 'manual';
+}
 
 /** Test-only match options from the URL: `?scenario=<name>` and/or `?seed=<uint32>`. */
 export function testOptionsFromQuery(search: string): SimulationOptions | undefined {

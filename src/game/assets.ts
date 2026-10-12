@@ -9,26 +9,36 @@ const ASSET_URLS = {
   water: '/game/water@2x.png',
 } as const;
 
-/** Ship colours: blue player, red chasers, black shooters. */
-export const SHIP_FRAMES = {
-  player: 'ship_5',
-  chaser: 'ship_3',
-  shooter: 'ship_2',
-} as const;
+/** First ship frame of each colour: blue player, red chasers, black shooters. */
+const SHIP_COLORS = { player: 5, chaser: 3, shooter: 2 } as const;
+
+export type ShipColor = keyof typeof SHIP_COLORS;
+
+/**
+ * Ship frame for a colour and damage stage (0 intact, 1 damaged, 2 badly damaged, 3 wreck).
+ * In the ships atlas each stage is six frames after the previous one (e.g. 5, 11, 17, 23).
+ */
+export function shipFrame(color: ShipColor, stage: number): string {
+  return `ship_${SHIP_COLORS[color] + 6 * stage}`;
+}
 
 type SheetName = 'ships' | 'tiles' | 'ui';
 
 /** Frames the game renders. A missing frame fails the load instead of drawing an empty sprite. */
 const REQUIRED_FRAMES: Record<SheetName, readonly string[]> = {
   ships: [
-    ...Object.values(SHIP_FRAMES),
+    ...(Object.keys(SHIP_COLORS) as ShipColor[]).flatMap((color) =>
+      [0, 1, 2, 3].map((stage) => shipFrame(color, stage)),
+    ),
     'cannon_ball',
     'explosion_1',
     'explosion_2',
     'explosion_3',
+    'fire_1',
+    'fire_2',
   ],
   tiles: Object.values(ISLAND_FRAMES),
-  ui: [],
+  ui: ['enemy_health_frame', 'enemy_health_fill_green', 'enemy_health_fill_red'],
 };
 
 export type GameTextures = {

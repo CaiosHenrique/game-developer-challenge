@@ -48,10 +48,17 @@ export type DestroyCause = 'playerFire' | 'ramming';
 
 export type EnemyPlacement = { kind: EnemyKind; x: number; y: number; heading: number };
 
+export type MatchPhase = 'running' | 'ended';
+
+/** Why a match ended: the timer ran out or the player's ship sank. */
+export type EndReason = 'time' | 'death';
+
 export type SimulationOptions = {
   /** Seed of the simulation's random generator: the same seed replays the same match. */
   seed?: number;
   playerStart?: { x: number; y: number; heading: number };
+  /** Player health at the start (fixed test scenarios); defaults to the configured maximum. */
+  playerHp?: number;
   /** Enemies present when the match starts (used by fixed test scenarios). */
   enemies?: readonly EnemyPlacement[];
   /** Spawns enemies over time (default true; fixed test scenarios turn it off). */
@@ -72,8 +79,10 @@ export type SimEvent =
       kind: EnemyKind;
       x: number;
       y: number;
+      heading: number;
       cause: DestroyCause;
-    };
+    }
+  | { type: 'matchEnded'; reason: EndReason; x: number; y: number; heading: number };
 
 /**
  * Deterministic game simulation. It has no rendering or DOM dependencies.
@@ -90,6 +99,8 @@ export type SimEvent =
  * 7. firing: player, then living shooters (by id); new projectiles move from the next step
  * 8. destroyed enemies are removed
  * 9. spawning: a new enemy appears at a valid point; it acts from the next step
+ * 10. match end: the player's ship sank (`death`, checked first) or the timer ran out
+ *     (`time`). An ended match is frozen: further steps change nothing.
  */
 export class Simulation {
   readonly player: PlayerShip;
@@ -111,6 +122,11 @@ export class Simulation {
     ship: 0,
     ownerDestroyed: 0,
   };
+  phase: MatchPhase = 'running';
+  endReason: EndReason | null = null;
+  /** Tick at which the match ended (its active play time, in ticks). */
+  endTick: number | null = null;
+  readonly durationTicks: number;
   readonly seed: number;
   readonly spawner: Spawner | null;
   private readonly rng: Rng;
@@ -131,10 +147,14 @@ export class Simulation {
       y: start.y,
       heading: start.heading,
       speed: 0,
-      hp: config.player.maxHp,
+      hp: options.playerHp ?? config.player.maxHp,
       maxHp: config.player.maxHp,
     };
     this.dt = 1 / config.simulation.stepsPerSecond;
+    this.durationTicks = secondsToTicks(
+      config.match.durationSeconds,
+      config.simulation.stepsPerSecond,
+    );
     this.seed = (options.seed ?? DEFAULT_SEED) >>> 0;
     this.rng = new Rng(this.seed);
     this.spawner = options.spawner === false ? null : new Spawner(config, this.rng, SPAWN_POINTS);
@@ -170,7 +190,14 @@ export class Simulation {
     return enemy;
   }
 
+  /** Ticks of active play left before the timer ends the match. */
+  get remainingTicks(): number {
+    return Math.max(0, this.durationTicks - this.tick);
+  }
+
   step(input: InputState): void {
+    // An ended match is frozen: no movement, attacks, damage, spawns or scoring.
+    if (this.phase === 'ended') return;
     const playerConfig = this.config.player;
 
     // 1. Commands, decided from start-of-step positions.
@@ -255,6 +282,18 @@ export class Simulation {
       (kind, x, y, heading) => this.addEnemy({ kind, x, y, heading }).id,
     );
     this.tick += 1;
+
+    // 10. Match end (a sinking ship takes precedence over the timer on the same tick).
+    if (this.player.hp === 0) this.endMatch('death');
+    else if (this.tick >= this.durationTicks) this.endMatch('time');
+  }
+
+  private endMatch(reason: EndReason): void {
+    this.phase = 'ended';
+    this.endReason = reason;
+    this.endTick = this.tick;
+    const { x, y, heading } = this.player;
+    this.events.push({ type: 'matchEnded', reason, x, y, heading });
   }
 
   /** Internal state of the random generator (for determinism checks). */
@@ -302,6 +341,7 @@ export class Simulation {
       kind: enemy.kind,
       x: enemy.x,
       y: enemy.y,
+      heading: enemy.heading,
       cause,
     });
     // A destroyed enemy stops causing damage: its projectiles in flight are removed too.

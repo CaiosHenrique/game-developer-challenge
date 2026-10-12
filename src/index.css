@@ -57,6 +57,184 @@ body,
 
 .game-toolbar {
   position: absolute;
+  bottom: 0.75rem;
+  left: 0.75rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* HUD: health top-left, score and time top-right (sizes follow the art's logical pixels). */
+.hud {
+  /* Unitless multiplier of the art's logical pixels (lengths are calc(Npx * scale)). */
+  --hud-scale: 0.85;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-weight: 700;
+  color: #fff8e6;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 70%);
+}
+
+@media (max-width: 900px) {
+  .hud {
+    --hud-scale: 0.7;
+  }
+}
+
+@media (max-width: 600px) {
+  .hud {
+    --hud-scale: 0.55;
+  }
+}
+
+.hud-stats {
+  margin: 0;
+}
+
+.hud-stats dd {
+  margin: 0;
+}
+
+.hud-health {
+  position: absolute;
   top: 0.75rem;
   left: 0.75rem;
+}
+
+.hud-health dd {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.hud-heart {
+  width: calc(48px * var(--hud-scale));
+}
+
+.hud-bar {
+  position: relative;
+  display: block;
+  width: calc(256px * var(--hud-scale));
+  height: calc(48px * var(--hud-scale));
+}
+
+.hud-bar img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hud-bar-label {
+  position: absolute;
+  left: calc(48px * var(--hud-scale) + 0.25rem);
+  width: calc(256px * var(--hud-scale));
+  text-align: center;
+  font-size: calc(18px * var(--hud-scale));
+}
+
+.hud-counter {
+  position: absolute;
+  top: 0.75rem;
+}
+
+.hud-score {
+  right: calc(176px * var(--hud-scale) + 1.25rem);
+}
+
+.hud-time {
+  right: 0.75rem;
+}
+
+.hud-counter dd {
+  position: relative;
+  width: calc(160px * var(--hud-scale));
+  height: calc(56px * var(--hud-scale));
+}
+
+.hud-counter-panel {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hud-counter-icon {
+  position: absolute;
+  top: 50%;
+  left: calc(16px * var(--hud-scale));
+  width: calc(32px * var(--hud-scale));
+  transform: translateY(-50%);
+}
+
+.hud-counter-value {
+  position: absolute;
+  inset: 0 calc(14px * var(--hud-scale)) 0 calc(54px * var(--hud-scale));
+  display: grid;
+  place-items: center;
+  font-size: calc(24px * var(--hud-scale));
+  font-variant-numeric: tabular-nums;
+}
+
+/* End-of-match panel */
+.end-backdrop {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(5 12 20 / 55%);
+}
+
+.end-panel {
+  min-width: min(22rem, 90vw);
+  padding: 1.5rem 2rem;
+  border: 4px solid #b9742f;
+  border-radius: 1rem;
+  background: #1d2b3c;
+  text-align: center;
+  box-shadow: 0 1rem 3rem rgb(0 0 0 / 50%);
+}
+
+.end-panel h2 {
+  margin: 0 0 0.5rem;
+  color: #f7d9a2;
+}
+
+.end-score {
+  margin: 0;
+  font-size: 3.5rem;
+  font-weight: 800;
+  color: #f4c56a;
+}
+
+.end-details {
+  margin: 0.25rem 0 1.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.end-actions {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.end-actions button {
+  padding: 0.6rem 1rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.end-actions button:focus-visible,
+.game-toolbar button:focus-visible {
+  outline: 3px solid #f4c56a;
+  outline-offset: 3px;
 }

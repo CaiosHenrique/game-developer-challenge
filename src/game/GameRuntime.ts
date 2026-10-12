@@ -2,6 +2,7 @@ import { Application, type Ticker } from 'pixi.js';
 import { ARENA_BOUNDS, ISLAND_COLLIDERS, WORLD_HEIGHT, WORLD_WIDTH } from './arena.ts';
 import type { GameTextures } from './assets.ts';
 import type { GameConfig } from './config.ts';
+import { HudStore, type HudState, type MatchResult } from './hudStore.ts';
 import { KeyboardInput } from './input.ts';
 import { GameRenderer } from './render/GameRenderer.ts';
 import { hullCircles, Simulation, type SimulationOptions } from './sim/simulation.ts';
@@ -12,22 +13,27 @@ export type GameRuntimeOptions = {
   debugColliders?: boolean;
   /** Starting situation of the match (fixed test scenarios). */
   simulation?: SimulationOptions;
+  /** Start on the manual clock: the simulation only advances through test hooks. */
+  manualClock?: boolean;
 };
 
 /**
- * Owns the PixiJS application of one game screen, the input and the fixed-step clock that
- * drives the simulation. `destroy()` may be called before the asynchronous `start()`
- * finishes (React Strict Mode mounts, unmounts and remounts effects), in which case
- * `start()` tears the application down as soon as `init()` resolves.
+ * Owns the PixiJS application of one match, the input and the fixed-step clock that drives
+ * the simulation, and publishes the HUD state to React. `destroy()` may be called before
+ * the asynchronous `start()` finishes (React Strict Mode mounts, unmounts and remounts
+ * effects), in which case `start()` tears the application down as soon as `init()` resolves.
  */
 export class GameRuntime {
   /** Number of initialized runtimes that were not destroyed yet (used to detect leaks). */
   static liveInstances = 0;
 
   private readonly app = new Application();
+  /** This match's own copy of the configuration: later changes apply to new matches only. */
+  private readonly config: GameConfig;
   private readonly simulation: Simulation;
   private readonly keyboard = new KeyboardInput();
   private renderer: GameRenderer | null = null;
+  private result: MatchResult | null = null;
   /** Real time not yet simulated, in seconds. */
   private accumulator = 0;
   private manualClock = false;
@@ -39,12 +45,28 @@ export class GameRuntime {
   constructor(
     private readonly host: HTMLElement,
     private readonly textures: GameTextures,
-    private readonly config: GameConfig,
+    config: GameConfig,
+    readonly hud: HudStore,
     private readonly options: GameRuntimeOptions = {},
   ) {
+    this.config = structuredClone(config);
+    this.manualClock = options.manualClock ?? false;
     // Randomness enters the simulation only through its seed, chosen here per match.
     const seed = options.simulation?.seed ?? crypto.getRandomValues(new Uint32Array(1))[0]!;
-    this.simulation = new Simulation(config, { ...options.simulation, seed });
+    this.simulation = new Simulation(this.config, { ...options.simulation, seed });
+    this.hud.offer(this.hudState());
+  }
+
+  /** Initial HUD state for a match played with `config`, before the runtime exists. */
+  static initialHud(config: GameConfig): HudState {
+    return {
+      hp: config.player.maxHp,
+      maxHp: config.player.maxHp,
+      score: 0,
+      remainingSeconds: config.match.durationSeconds,
+      phase: 'running',
+      result: null,
+    };
   }
 
   async start(): Promise<void> {
@@ -104,6 +126,7 @@ export class GameRuntime {
     this.resizeObserver = null;
     // Stops the ticker, removes the canvas and destroys the scene graph, including pooled
     // sprites. Textures are shared between matches and stay in the asset cache.
+    this.renderer?.destroy();
     this.app.destroy(true, { children: true });
     this.renderer = null;
     GameRuntime.liveInstances -= 1;
@@ -119,13 +142,42 @@ export class GameRuntime {
         this.accumulator -= stepSeconds;
       }
     }
-    this.renderer?.sync(this.simulation, this.simulation.drainEvents(), deltaSeconds);
+    this.present(deltaSeconds);
   };
 
   /** Manual clock: runs an exact number of steps and refreshes the scene. */
   private runSteps(count: number): void {
     for (let index = 0; index < count; index += 1) this.simulation.step(this.keyboard.state);
-    this.renderer?.sync(this.simulation, this.simulation.drainEvents(), 0);
+    this.present(0);
+  }
+
+  /** Draws the scene and publishes the HUD state after the simulation advanced. */
+  private present(deltaSeconds: number): void {
+    this.renderer?.sync(this.simulation, this.simulation.drainEvents(), deltaSeconds);
+    if (this.simulation.phase === 'ended' && !this.result) {
+      // The match is over: stop capturing game keys so the end panel can use them.
+      this.keyboard.detach();
+      this.result = {
+        reason: this.simulation.endReason!,
+        score: this.simulation.score,
+        timePlayedSeconds: this.simulation.endTick! / this.config.simulation.stepsPerSecond,
+      };
+    }
+    this.hud.offer(this.hudState());
+  }
+
+  private hudState(): HudState {
+    const { player, score, phase } = this.simulation;
+    return {
+      hp: player.hp,
+      maxHp: player.maxHp,
+      score,
+      remainingSeconds: Math.ceil(
+        this.simulation.remainingTicks / this.config.simulation.stepsPerSecond,
+      ),
+      phase,
+      result: this.result,
+    };
   }
 
   private snapshot(): GameStateSnapshot {
@@ -135,6 +187,14 @@ export class GameRuntime {
       rngState: this.simulation.rngState,
       spawns: this.simulation.spawner?.spawns.map((record) => ({ ...record })) ?? [],
       spawnStats: this.simulation.spawner?.getStats() ?? null,
+      phase: this.simulation.phase,
+      endReason: this.simulation.endReason,
+      endTick: this.simulation.endTick,
+      durationTicks: this.simulation.durationTicks,
+      remainingTicks: this.simulation.remainingTicks,
+      hud: { ...this.hud.getSnapshot() },
+      hudEmissions: this.hud.emissions,
+      liveRuntimes: GameRuntime.liveInstances,
       tick: this.simulation.tick,
       elapsed: this.simulation.elapsed,
       player: { ...player, hull: hullCircles(player, this.config.player.hull) },

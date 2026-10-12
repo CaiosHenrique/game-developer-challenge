@@ -1,7 +1,8 @@
+import type { HudState } from './hudStore.ts';
 import type { RendererStats } from './render/GameRenderer.ts';
 import type { Aabb, Circle } from './sim/geometry.ts';
 import type { Enemy } from './sim/ai.ts';
-import type { DestroyCause, PlayerShip } from './sim/simulation.ts';
+import type { DestroyCause, EndReason, MatchPhase, PlayerShip } from './sim/simulation.ts';
 import type { SpawnRecord, SpawnStats } from './sim/spawner.ts';
 import type { Projectile, ProjectileRemoval, WeaponSlot } from './sim/weapons.ts';
 
@@ -10,6 +11,16 @@ export type GameStateSnapshot = {
   rngState: number;
   spawns: SpawnRecord[];
   spawnStats: SpawnStats | null;
+  phase: MatchPhase;
+  endReason: EndReason | null;
+  endTick: number | null;
+  durationTicks: number;
+  remainingTicks: number;
+  /** State currently published to the React HUD, and how many times it changed. */
+  hud: HudState;
+  hudEmissions: number;
+  /** Runtimes initialized and not yet destroyed (detects a match left running). */
+  liveRuntimes: number;
   tick: number;
   elapsed: number;
   player: PlayerShip & { hull: Circle[] };

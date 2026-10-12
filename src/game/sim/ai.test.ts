@@ -67,7 +67,7 @@ for (const kind of ['chaser', 'shooter'] as const) {
         });
         const label = `${kind} from (${start.x},${start.y}) to player (${player.x},${player.y})`;
         let reached = false;
-        while (!reached && sim.tick < TIME_LIMIT_TICKS) {
+        while (!reached && sim.tick < TIME_LIMIT_TICKS && sim.phase === 'running') {
           sim.step(IDLE);
           const overlap = islandOverlap(sim, kind);
           assert.ok(overlap <= FLOAT_EPSILON, `${label}: overlaps an island by ${overlap}`);
@@ -104,7 +104,11 @@ test('without obstacle feelers, the unstuck manoeuvre alone gets a chaser around
     playerStart: { x: 800, y: 300, heading: 0 },
     enemies: [{ kind: 'chaser', x: 100, y: 300, heading: Math.PI / 2 }],
   });
-  while (sim.enemiesDestroyed.ramming === 0 && sim.tick < TIME_LIMIT_TICKS) {
+  while (
+    sim.enemiesDestroyed.ramming === 0 &&
+    sim.tick < TIME_LIMIT_TICKS &&
+    sim.phase === 'running'
+  ) {
     sim.step(IDLE);
     assert.ok(islandOverlap(sim, 'chaser') <= FLOAT_EPSILON);
   }

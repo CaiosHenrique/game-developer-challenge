@@ -11,9 +11,14 @@ export function collectProblems(page: Page): string[] {
   return problems;
 }
 
-/** Opens the game and switches the simulation to the manual (test-controlled) clock. */
+/**
+ * Opens the game on the manual (test-controlled) clock: `clock=manual` makes every match on
+ * the page, including ones started with Play Again, begin at tick 0 without advancing.
+ */
 export async function startGame(page: Page, query = ''): Promise<void> {
-  await page.goto(`/${query}`);
+  const params = new URLSearchParams(query);
+  params.set('clock', 'manual');
+  await page.goto(`/?${params.toString()}`);
   await page.getByRole('button', { name: 'Play' }).click();
   await expect(page.locator('[data-testid="game-host"] canvas')).toHaveCount(1);
   await page.waitForFunction(() => window.__pirateTest !== undefined);

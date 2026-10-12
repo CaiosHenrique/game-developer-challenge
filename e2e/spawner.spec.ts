@@ -18,7 +18,7 @@ function runUntilSpawns(page: Page, count: number) {
       const api = window.__pirateTest!;
       const distances: number[] = [];
       let state = api.getState();
-      while (state.spawns.length < wanted && state.tick < limit) {
+      while (state.spawns.length < wanted && state.tick < limit && state.phase === 'running') {
         api.step(1);
         state = api.getState();
         for (let i = distances.length; i < state.spawns.length; i += 1) {
@@ -63,7 +63,7 @@ test.describe('enemy spawner', () => {
   test('opens with a chaser then a shooter, on the exact cadence, far from the player', async ({
     page,
   }) => {
-    await startGame(page, '?seed=12345');
+    await startGame(page, '?scenario=endless-spawns&seed=12345');
     const { state, distances } = await runUntilSpawns(page, 5);
 
     expect(state.seed).toBe(12345);
@@ -80,7 +80,7 @@ test.describe('enemy spawner', () => {
 
   test('the same seed replays the same match after a reload', async ({ page }) => {
     const play = async (seed: number) => {
-      await startGame(page, `?seed=${seed}`);
+      await startGame(page, `?scenario=endless-spawns&seed=${seed}`);
       return replayed((await runUntilSpawns(page, 4)).state);
     };
     const first = await play(777);

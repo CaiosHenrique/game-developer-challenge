@@ -18,7 +18,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test:unit": "tsx --test \"src/**/*.test.ts\"",
+    "test:unit": "tsx --test --test-timeout=60000 \"src/**/*.test.ts\"",
     "test:e2e": "playwright test",
     "test:e2e:report": "playwright show-report"
   },
