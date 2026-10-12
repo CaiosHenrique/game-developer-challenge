@@ -29,3 +29,34 @@ body,
   height: 100%;
   text-align: center;
 }
+
+.game-screen {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #0d1b2a;
+}
+
+.game-host {
+  position: absolute;
+  inset: 0;
+}
+
+.game-host canvas {
+  display: block;
+}
+
+.game-message {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 0.75rem;
+  text-align: center;
+}
+
+.game-toolbar {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+}

@@ -82,12 +82,26 @@ const TILE_REGIONS: Record<string, Rect> = {
   plant_2: { x: 448, y: 320, w: 64, h: 64 },
 };
 
+/**
+ * The tile sheet has no padding between cells, so linear filtering of a scaled sprite samples
+ * the neighbouring cell at the frame border (visible as thin lines). Insetting each frame by
+ * one logical pixel (two texels in the 2x sheet) avoids that bleeding.
+ */
+const TILE_INSET = 2;
+
 function buildTiles(): SpritesheetJson {
   const scale = 2;
   const imageFile = join(src, 'tilesheet', 'tiles_sheet_retina.png');
   const frames: SpritesheetJson['frames'] = {};
   for (const [name, r] of Object.entries(TILE_REGIONS)) {
-    frames[name] = { frame: { x: r.x * scale, y: r.y * scale, w: r.w * scale, h: r.h * scale } };
+    frames[name] = {
+      frame: {
+        x: r.x * scale + TILE_INSET,
+        y: r.y * scale + TILE_INSET,
+        w: r.w * scale - 2 * TILE_INSET,
+        h: r.h * scale - 2 * TILE_INSET,
+      },
+    };
   }
   copyFileSync(imageFile, join(out, 'tiles.png'));
   return { frames, meta: { image: 'tiles.png', size: pngSize(imageFile), scale: String(scale) } };
