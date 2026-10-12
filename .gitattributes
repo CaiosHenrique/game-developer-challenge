@@ -1,0 +1,6 @@
+* text=auto eol=lf
+# Keep original challenge assets byte-for-byte as committed
+assets/** -text
+*.png binary
+*.wav binary
+*.swf binary
