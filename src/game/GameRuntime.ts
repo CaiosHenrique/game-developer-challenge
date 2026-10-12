@@ -4,12 +4,14 @@ import type { GameTextures } from './assets.ts';
 import type { GameConfig } from './config.ts';
 import { KeyboardInput } from './input.ts';
 import { GameRenderer } from './render/GameRenderer.ts';
-import { hullCircles, Simulation } from './sim/simulation.ts';
+import { hullCircles, Simulation, type SimulationOptions } from './sim/simulation.ts';
 import { installTestHooks, type GameStateSnapshot } from './testHooks.ts';
 
 export type GameRuntimeOptions = {
   /** Draws collision shapes on top of the scene (`?debug=colliders`). */
   debugColliders?: boolean;
+  /** Starting situation of the match (fixed test scenarios). */
+  simulation?: SimulationOptions;
 };
 
 /**
@@ -40,7 +42,7 @@ export class GameRuntime {
     private readonly config: GameConfig,
     private readonly options: GameRuntimeOptions = {},
   ) {
-    this.simulation = new Simulation(config);
+    this.simulation = new Simulation(config, options.simulation);
   }
 
   async start(): Promise<void> {
@@ -63,7 +65,7 @@ export class GameRuntime {
 
     this.renderer = new GameRenderer(
       this.textures,
-      this.config.player.hull,
+      this.config,
       this.options.debugColliders ?? false,
     );
     this.renderer.sync(this.simulation, [], 0);
@@ -125,11 +127,18 @@ export class GameRuntime {
   }
 
   private snapshot(): GameStateSnapshot {
-    const { player, projectiles } = this.simulation;
+    const { player, enemies, projectiles } = this.simulation;
     return {
       tick: this.simulation.tick,
       elapsed: this.simulation.elapsed,
       player: { ...player, hull: hullCircles(player, this.config.player.hull) },
+      enemies: enemies.map((enemy) => ({
+        ...enemy,
+        hull: hullCircles(enemy, this.config.enemies[enemy.kind].hull),
+      })),
+      score: this.simulation.score,
+      enemiesDestroyed: { ...this.simulation.enemiesDestroyed },
+      enemyShotsFired: this.simulation.enemyShotsFired,
       projectiles: projectiles.map((projectile) => ({ ...projectile })),
       weaponReadyAt: { ...this.simulation.weaponReadyAt },
       shotsFired: { ...this.simulation.shotsFired },

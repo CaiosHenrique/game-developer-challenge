@@ -141,7 +141,13 @@ test.describe('player weapons', () => {
 
     state = await step(page, 1);
     expect(state.projectiles).toHaveLength(0);
-    expect(state.projectilesRemoved).toEqual({ island: 0, outOfBounds: 0, expired: 1 });
+    expect(state.projectilesRemoved).toEqual({
+      island: 0,
+      outOfBounds: 0,
+      expired: 1,
+      ship: 0,
+      ownerDestroyed: 0,
+    });
     const travelled = Math.hypot(last.x - start.x, last.y - start.y) + front.speed / 60;
     expect(Math.abs(travelled - front.range)).toBeLessThan(front.speed / 60);
   });
@@ -165,7 +171,13 @@ test.describe('player weapons', () => {
       state = await step(page, 1);
       steps += 1;
     }
-    expect(state.projectilesRemoved).toEqual({ island: 1, outOfBounds: 0, expired: 0 });
+    expect(state.projectilesRemoved).toEqual({
+      island: 1,
+      outOfBounds: 0,
+      expired: 0,
+      ship: 0,
+      ownerDestroyed: 0,
+    });
     expect(steps).toBeLessThan(FRONT_LIFE_TICKS);
   });
 
@@ -176,7 +188,13 @@ test.describe('player weapons', () => {
       state = await step(page, 1);
       steps += 1;
     }
-    expect(state.projectilesRemoved).toEqual({ island: 0, outOfBounds: 1, expired: 0 });
+    expect(state.projectilesRemoved).toEqual({
+      island: 0,
+      outOfBounds: 1,
+      expired: 0,
+      ship: 0,
+      ownerDestroyed: 0,
+    });
     expect(steps).toBeLessThan(FRONT_LIFE_TICKS);
   });
 

@@ -9,15 +9,24 @@ const ASSET_URLS = {
   water: '/game/water@2x.png',
 } as const;
 
+/** Ship colours: blue player, red chasers, black shooters. */
 export const SHIP_FRAMES = {
   player: 'ship_5',
+  chaser: 'ship_3',
+  shooter: 'ship_2',
 } as const;
 
 type SheetName = 'ships' | 'tiles' | 'ui';
 
 /** Frames the game renders. A missing frame fails the load instead of drawing an empty sprite. */
 const REQUIRED_FRAMES: Record<SheetName, readonly string[]> = {
-  ships: [...Object.values(SHIP_FRAMES), 'cannon_ball', 'explosion_3'],
+  ships: [
+    ...Object.values(SHIP_FRAMES),
+    'cannon_ball',
+    'explosion_1',
+    'explosion_2',
+    'explosion_3',
+  ],
   tiles: Object.values(ISLAND_FRAMES),
   ui: [],
 };

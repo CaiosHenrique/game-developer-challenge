@@ -1,5 +1,13 @@
 import type { WeaponConfig } from '../config.ts';
-import { expandAabb, headingVector, pointInAabb, segmentAabbEntry, type Aabb } from './geometry.ts';
+import {
+  expandAabb,
+  headingVector,
+  pointInAabb,
+  segmentAabbEntry,
+  segmentCircleEntry,
+  type Aabb,
+  type Circle,
+} from './geometry.ts';
 
 export type WeaponSlot = 'front' | 'left' | 'right';
 
@@ -7,9 +15,14 @@ export const WEAPON_SLOTS: readonly WeaponSlot[] = ['front', 'left', 'right'];
 
 export type Faction = 'player' | 'enemy';
 
+/** Owner id of projectiles fired by the player (enemy ids start at 1). */
+export const PLAYER_ID = 0;
+
 export type Projectile = {
   id: number;
   owner: Faction;
+  /** Ship that fired it: PLAYER_ID or an enemy id. */
+  ownerId: number;
   weapon: WeaponSlot;
   x: number;
   y: number;
@@ -23,7 +36,12 @@ export type Projectile = {
   lifeTicks: number;
 };
 
-export type ProjectileRemoval = 'island' | 'outOfBounds' | 'expired';
+export type ProjectileRemoval = 'island' | 'outOfBounds' | 'expired' | 'ship' | 'ownerDestroyed';
+
+/** A ship a projectile can hit. */
+export type ProjectileTarget = { id: number; circles: readonly Circle[] };
+
+export type ProjectileOutcome = { reason: ProjectileRemoval; targetId?: number } | null;
 
 type Pose = { x: number; y: number; heading: number };
 
@@ -36,7 +54,7 @@ export function createShot(
   slot: WeaponSlot,
   weapon: WeaponConfig,
   stepsPerSecond: number,
-): Omit<Projectile, 'id' | 'owner'>[] {
+): Omit<Projectile, 'id' | 'owner' | 'ownerId'>[] {
   const forward = headingVector(pose.heading);
   const right = { x: -forward.y, y: forward.x };
   const direction =
@@ -66,35 +84,51 @@ export function createShot(
 }
 
 /**
- * Moves a projectile one step. Returns why it must be removed, if it hit an island along
- * the swept segment, left the arena or reached the end of its range.
+ * Moves a projectile one step along a swept segment. The first contact along the segment
+ * wins: an island, or the hull of a target ship (ties: islands first, then targets in the
+ * given order). Otherwise it is removed when it leaves the arena or reaches its range.
  */
 export function moveProjectile(
   projectile: Projectile,
   dt: number,
   obstacles: readonly Aabb[],
   bounds: Aabb,
-): ProjectileRemoval | null {
+  targets: readonly ProjectileTarget[],
+): ProjectileOutcome {
   const x0 = projectile.x;
   const y0 = projectile.y;
   const x1 = x0 + projectile.vx * dt;
   const y1 = y0 + projectile.vy * dt;
 
   let hit: number | null = null;
+  let targetId: number | undefined;
   for (const obstacle of obstacles) {
     const entry = segmentAabbEntry(x0, y0, x1, y1, expandAabb(obstacle, projectile.radius));
     if (entry !== null && (hit === null || entry < hit)) hit = entry;
   }
+  for (const target of targets) {
+    for (const circle of target.circles) {
+      const entry = segmentCircleEntry(x0, y0, x1, y1, {
+        x: circle.x,
+        y: circle.y,
+        radius: circle.radius + projectile.radius,
+      });
+      if (entry !== null && (hit === null || entry < hit)) {
+        hit = entry;
+        targetId = target.id;
+      }
+    }
+  }
   if (hit !== null) {
     projectile.x = x0 + (x1 - x0) * hit;
     projectile.y = y0 + (y1 - y0) * hit;
-    return 'island';
+    return targetId === undefined ? { reason: 'island' } : { reason: 'ship', targetId };
   }
 
   projectile.x = x1;
   projectile.y = y1;
   projectile.age += 1;
-  if (!pointInAabb(x1, y1, bounds)) return 'outOfBounds';
-  if (projectile.age >= projectile.lifeTicks) return 'expired';
+  if (!pointInAabb(x1, y1, bounds)) return { reason: 'outOfBounds' };
+  if (projectile.age >= projectile.lifeTicks) return { reason: 'expired' };
   return null;
 }

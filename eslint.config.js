@@ -34,6 +34,11 @@ export default tseslint.config(
           patterns: ['**/GameRuntime*', '**/assets*', '**/input*', '**/app/**'],
         },
       ],
+      // Randomness must come from the simulation's seeded generator, never Math.random.
+      'no-restricted-properties': [
+        'error',
+        { object: 'Math', property: 'random', message: 'Use the seeded simulation RNG.' },
+      ],
     },
   },
 );

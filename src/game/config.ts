@@ -36,6 +36,12 @@ export type WeaponConfig = {
   muzzleOffset: number;
 };
 
+export type EnemyConfig = {
+  movement: ShipMovement;
+  hull: ShipHull;
+  maxHp: number;
+};
+
 export type GameConfig = {
   simulation: {
     /** Fixed simulation rate. */
@@ -46,6 +52,34 @@ export type GameConfig = {
   player: {
     movement: ShipMovement;
     hull: ShipHull;
+    maxHp: number;
+  };
+  enemies: {
+    chaser: EnemyConfig & {
+      /** Damage dealt to the player when the chaser rams it (it is destroyed by the impact). */
+      impactDamage: number;
+    };
+    shooter: EnemyConfig & {
+      /** It stops approaching once the player is this close. */
+      preferredRange: number;
+      /** It fires only while the player is within this distance... */
+      attackRange: number;
+      /** ...and within this angle (radians) of its bow. */
+      fireCone: number;
+      weapon: WeaponConfig;
+    };
+    ai: {
+      /** Length of the two obstacle-detection rays cast ahead of an enemy. */
+      feelerLength: number;
+      /** Angle of each ray from the bow (radians). */
+      feelerAngle: number;
+      /** An enemy that barely moves while sailing for this long is considered stuck... */
+      stuckSeconds: number;
+      /** ...where "barely" is less than this fraction of its top speed. */
+      stuckSpeedRatio: number;
+      /** A stuck enemy turns away to one fixed side for this long. */
+      unstuckSeconds: number;
+    };
   };
   weapons: {
     front: WeaponConfig;
@@ -62,6 +96,40 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
   player: {
     movement: { maxSpeed: 170, acceleration: 220, deceleration: 160, turnRate: 2.4 },
     hull: { radius: 24, offset: 30 },
+    maxHp: 100,
+  },
+  enemies: {
+    chaser: {
+      movement: { maxSpeed: 130, acceleration: 160, deceleration: 120, turnRate: 1.8 },
+      hull: { radius: 24, offset: 30 },
+      maxHp: 40,
+      impactDamage: 20,
+    },
+    shooter: {
+      movement: { maxSpeed: 110, acceleration: 120, deceleration: 120, turnRate: 1.5 },
+      hull: { radius: 24, offset: 30 },
+      maxHp: 60,
+      preferredRange: 300,
+      attackRange: 380,
+      fireCone: (15 * Math.PI) / 180,
+      weapon: {
+        damage: 15,
+        speed: 360,
+        range: 420,
+        cooldown: 1.8,
+        projectileRadius: 5,
+        count: 1,
+        spacing: 0,
+        muzzleOffset: 60,
+      },
+    },
+    ai: {
+      feelerLength: 130,
+      feelerAngle: 0.45,
+      stuckSeconds: 1,
+      stuckSpeedRatio: 0.1,
+      unstuckSeconds: 0.8,
+    },
   },
   weapons: {
     front: {

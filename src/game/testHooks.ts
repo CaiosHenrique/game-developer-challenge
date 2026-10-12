@@ -1,12 +1,17 @@
 import type { RendererStats } from './render/GameRenderer.ts';
 import type { Aabb, Circle } from './sim/geometry.ts';
-import type { Ship } from './sim/simulation.ts';
+import type { Enemy } from './sim/ai.ts';
+import type { DestroyCause, PlayerShip } from './sim/simulation.ts';
 import type { Projectile, ProjectileRemoval, WeaponSlot } from './sim/weapons.ts';
 
 export type GameStateSnapshot = {
   tick: number;
   elapsed: number;
-  player: Ship & { hull: Circle[] };
+  player: PlayerShip & { hull: Circle[] };
+  enemies: (Enemy & { hull: Circle[] })[];
+  score: number;
+  enemiesDestroyed: Record<DestroyCause, number>;
+  enemyShotsFired: number;
   projectiles: Projectile[];
   weaponReadyAt: Record<WeaponSlot, number>;
   shotsFired: Record<WeaponSlot, number>;

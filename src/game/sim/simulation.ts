@@ -1,21 +1,27 @@
 import { ARENA_BOUNDS, ISLAND_COLLIDERS, PLAYER_START } from '../arena.ts';
-import { secondsToTicks, type GameConfig, type ShipHull, type ShipMovement } from '../config.ts';
+import { secondsToTicks, type EnemyConfig, type GameConfig, type WeaponConfig } from '../config.ts';
+import { enemyControls, headingTowards, wrapAngle, type Enemy, type EnemyKind } from './ai.ts';
 import {
-  circleAabbPush,
-  circleBoundsPush,
-  headingVector,
-  type Aabb,
-  type Circle,
-  type Vec,
-} from './geometry.ts';
+  hullCircles,
+  hullsOverlap,
+  resolveShipCollisions,
+  separateShips,
+  steerShip,
+  type Ship,
+  type ShipControls,
+} from './ships.ts';
 import {
   createShot,
   moveProjectile,
+  PLAYER_ID,
   WEAPON_SLOTS,
   type Projectile,
   type ProjectileRemoval,
+  type ProjectileTarget,
   type WeaponSlot,
 } from './weapons.ts';
+
+export { hullCircles, type Ship } from './ships.ts';
 
 /** Player commands sampled once per simulation step. */
 export type InputState = {
@@ -33,111 +39,90 @@ const FIRE_INPUT: Record<WeaponSlot, keyof InputState> = {
   right: 'fireRight',
 };
 
-/** Facts produced by a step, consumed by the renderer for visual effects only. */
-export type SimEvent =
-  | { type: 'shot'; weapon: WeaponSlot; muzzles: { x: number; y: number }[]; heading: number }
-  | { type: 'projectileRemoved'; id: number; x: number; y: number; reason: ProjectileRemoval };
+export type PlayerShip = Ship & { hp: number; maxHp: number };
 
-export type Ship = {
-  x: number;
-  y: number;
-  /** Radians; 0 points up, grows clockwise. */
-  heading: number;
-  /** Speed along the heading (ships only sail forward). */
-  speed: number;
+/** Why an enemy was destroyed. Only `playerFire` scores. */
+export type DestroyCause = 'playerFire' | 'ramming';
+
+export type EnemyPlacement = { kind: EnemyKind; x: number; y: number; heading: number };
+
+export type SimulationOptions = {
+  playerStart?: { x: number; y: number; heading: number };
+  /** Enemies present when the match starts (used by fixed test scenarios). */
+  enemies?: readonly EnemyPlacement[];
 };
 
-/** Collision passes per step; a second pass settles contacts against two obstacles. */
-const COLLISION_PASSES = 2;
-
-/** The two circles that approximate a ship hull (bow, stern). */
-export function hullCircles(ship: Ship, hull: ShipHull): [Circle, Circle] {
-  const forward = headingVector(ship.heading);
-  return [
-    {
-      x: ship.x + forward.x * hull.offset,
-      y: ship.y + forward.y * hull.offset,
-      radius: hull.radius,
-    },
-    {
-      x: ship.x - forward.x * hull.offset,
-      y: ship.y - forward.y * hull.offset,
-      radius: hull.radius,
-    },
-  ];
-}
-
-function steerShip(ship: Ship, movement: ShipMovement, input: InputState, dt: number): void {
-  const turn = (input.turnRight ? 1 : 0) - (input.turnLeft ? 1 : 0);
-  ship.heading += turn * movement.turnRate * dt;
-
-  ship.speed = input.forward
-    ? Math.min(movement.maxSpeed, ship.speed + movement.acceleration * dt)
-    : Math.max(0, ship.speed - movement.deceleration * dt);
-
-  const forward = headingVector(ship.heading);
-  ship.x += forward.x * ship.speed * dt;
-  ship.y += forward.y * ship.speed * dt;
-}
+/** Facts produced by a step, consumed by the renderer for visual effects only. */
+export type SimEvent =
+  | { type: 'shot'; ownerId: number; muzzles: { x: number; y: number }[]; heading: number }
+  | { type: 'projectileRemoved'; id: number; x: number; y: number; reason: ProjectileRemoval }
+  | { type: 'shipHit'; targetId: number; x: number; y: number; damage: number }
+  | {
+      type: 'shipDestroyed';
+      id: number;
+      kind: EnemyKind;
+      x: number;
+      y: number;
+      cause: DestroyCause;
+    };
 
 /**
- * Pushes the hull out of islands and back inside the arena. A ship sailing into a contact
- * is slowed according to the impact angle: head-on it stops, at a glancing angle it keeps
- * sliding along the shore.
+ * Deterministic game simulation. It has no rendering or DOM dependencies.
+ *
+ * Order of one step:
+ * 1. commands: player input; AI for each living enemy (by id), from start-of-step positions
+ * 2. movement of every ship
+ * 3. separation of overlapping hulls (enemy/enemy, shooter/player; chasers ram instead)
+ * 4. island and arena collision for every ship, so islands always win
+ * 5. ramming: a chaser touching the player damages it once and is destroyed
+ * 6. projectiles, in creation order: first contact along the swept segment; a hit applies
+ *    damage once, and a destroyed enemy stops being a target immediately and loses its
+ *    projectiles in flight
+ * 7. firing: player, then living shooters (by id); new projectiles move from the next step
+ * 8. destroyed enemies are removed
  */
-function resolveShipCollisions(
-  ship: Ship,
-  hull: ShipHull,
-  maxSpeed: number,
-  obstacles: readonly Aabb[],
-  bounds: Aabb,
-): void {
-  for (let pass = 0; pass < COLLISION_PASSES; pass += 1) {
-    for (const index of [0, 1] as const) {
-      // Circles are recomputed after every push, since moving the ship moves both of them.
-      for (const obstacle of obstacles) {
-        const push = circleAabbPush(hullCircles(ship, hull)[index], obstacle);
-        if (push) applyContact(ship, push, maxSpeed);
-      }
-      const boundsPush = circleBoundsPush(hullCircles(ship, hull)[index], bounds);
-      if (boundsPush.x !== 0 || boundsPush.y !== 0) applyContact(ship, boundsPush, maxSpeed);
-    }
-  }
-}
-
-function applyContact(ship: Ship, push: Vec, maxSpeed: number): void {
-  ship.x += push.x;
-  ship.y += push.y;
-
-  const length = Math.hypot(push.x, push.y);
-  if (length === 0) return;
-  const forward = headingVector(ship.heading);
-  const intoContact = -(forward.x * push.x + forward.y * push.y) / length;
-  // A speed cap (not a per-step factor), so the result does not depend on the step rate.
-  if (intoContact > 0) ship.speed = Math.min(ship.speed, maxSpeed * (1 - intoContact));
-}
-
-/** Deterministic game simulation. It has no rendering or DOM dependencies. */
 export class Simulation {
-  readonly player: Ship;
+  readonly player: PlayerShip;
+  enemies: Enemy[] = [];
   readonly projectiles: Projectile[] = [];
   /** Completed simulation steps. All game timing is expressed in whole ticks. */
   tick = 0;
-  /** Tick from which each weapon may fire again. */
+  /** Enemies destroyed by the player's fire. Ramming chasers do not count. */
+  score = 0;
+  readonly enemiesDestroyed: Record<DestroyCause, number> = { playerFire: 0, ramming: 0 };
+  /** Tick from which each player weapon may fire again. */
   readonly weaponReadyAt: Record<WeaponSlot, number> = { front: 0, left: 0, right: 0 };
   readonly shotsFired: Record<WeaponSlot, number> = { front: 0, left: 0, right: 0 };
+  enemyShotsFired = 0;
   readonly projectilesRemoved: Record<ProjectileRemoval, number> = {
     island: 0,
     outOfBounds: 0,
     expired: 0,
+    ship: 0,
+    ownerDestroyed: 0,
   };
   private nextProjectileId = 1;
+  private nextEnemyId = 1;
   private events: SimEvent[] = [];
   private readonly dt: number;
+  /** Projectiles removed during the current step (filtered out at its end). */
+  private readonly removedProjectiles = new Set<number>();
 
-  constructor(readonly config: GameConfig) {
-    this.player = { x: PLAYER_START.x, y: PLAYER_START.y, heading: PLAYER_START.heading, speed: 0 };
+  constructor(
+    readonly config: GameConfig,
+    options: SimulationOptions = {},
+  ) {
+    const start = options.playerStart ?? PLAYER_START;
+    this.player = {
+      x: start.x,
+      y: start.y,
+      heading: start.heading,
+      speed: 0,
+      hp: config.player.maxHp,
+      maxHp: config.player.maxHp,
+    };
     this.dt = 1 / config.simulation.stepsPerSecond;
+    for (const placement of options.enemies ?? []) this.addEnemy(placement);
   }
 
   /** Simulated seconds since the match started. */
@@ -145,12 +130,105 @@ export class Simulation {
     return this.tick / this.config.simulation.stepsPerSecond;
   }
 
+  enemyConfig(kind: EnemyKind): EnemyConfig {
+    return this.config.enemies[kind];
+  }
+
+  addEnemy(placement: EnemyPlacement): Enemy {
+    const kindConfig = this.enemyConfig(placement.kind);
+    const enemy: Enemy = {
+      id: this.nextEnemyId++,
+      kind: placement.kind,
+      x: placement.x,
+      y: placement.y,
+      heading: placement.heading,
+      speed: 0,
+      hp: kindConfig.maxHp,
+      maxHp: kindConfig.maxHp,
+      alive: true,
+      weaponReadyAt: 0,
+      stuckTicks: 0,
+      unstuckUntil: 0,
+    };
+    this.enemies.push(enemy);
+    return enemy;
+  }
+
   step(input: InputState): void {
-    const { movement, hull } = this.config.player;
-    steerShip(this.player, movement, input, this.dt);
-    resolveShipCollisions(this.player, hull, movement.maxSpeed, ISLAND_COLLIDERS, ARENA_BOUNDS);
+    const playerConfig = this.config.player;
+
+    // 1. Commands, decided from start-of-step positions.
+    const playerControls: ShipControls = {
+      throttle: input.forward,
+      turn: (input.turnRight ? 1 : 0) - (input.turnLeft ? 1 : 0),
+    };
+    const enemyCommands = this.enemies.map((enemy) =>
+      enemyControls(
+        enemy,
+        this.enemyConfig(enemy.kind),
+        this.player,
+        this.config,
+        ISLAND_COLLIDERS,
+        this.tick,
+      ),
+    );
+    const startPositions = this.enemies.map((enemy) => ({ x: enemy.x, y: enemy.y }));
+
+    // 2. Movement.
+    steerShip(this.player, playerConfig.movement, playerControls, this.dt);
+    this.enemies.forEach((enemy, index) => {
+      steerShip(enemy, this.enemyConfig(enemy.kind).movement, enemyCommands[index]!, this.dt);
+    });
+
+    // 3. Separation between hulls (chasers ram the player instead of being pushed away).
+    for (let i = 0; i < this.enemies.length; i += 1) {
+      const enemy = this.enemies[i]!;
+      const hull = this.enemyConfig(enemy.kind).hull;
+      for (let j = i + 1; j < this.enemies.length; j += 1) {
+        const other = this.enemies[j]!;
+        separateShips(enemy, hull, other, this.enemyConfig(other.kind).hull);
+      }
+      if (enemy.kind === 'shooter') separateShips(enemy, hull, this.player, playerConfig.hull);
+    }
+
+    // 4. Islands and arena bounds win over everything else.
+    resolveShipCollisions(
+      this.player,
+      playerConfig.hull,
+      playerConfig.movement.maxSpeed,
+      ISLAND_COLLIDERS,
+      ARENA_BOUNDS,
+    );
+    this.enemies.forEach((enemy, index) => {
+      const { hull, movement } = this.enemyConfig(enemy.kind);
+      resolveShipCollisions(enemy, hull, movement.maxSpeed, ISLAND_COLLIDERS, ARENA_BOUNDS);
+      this.updateStuckState(
+        enemy,
+        movement.maxSpeed,
+        enemyCommands[index]!,
+        startPositions[index]!,
+      );
+    });
+
+    // 5. Ramming.
+    for (const enemy of this.enemies) {
+      if (!enemy.alive || enemy.kind !== 'chaser') continue;
+      if (!hullsOverlap(enemy, this.enemyConfig('chaser').hull, this.player, playerConfig.hull)) {
+        continue;
+      }
+      this.damagePlayer(this.config.enemies.chaser.impactDamage, enemy.x, enemy.y);
+      this.destroyEnemy(enemy, 'ramming');
+    }
+
+    // 6. Projectiles.
     this.updateProjectiles();
-    this.fireWeapons(input);
+
+    // 7. Firing.
+    this.firePlayerWeapons(input);
+    this.fireShooters();
+
+    // 8. Cleanup.
+    this.enemies = this.enemies.filter((enemy) => enemy.alive);
     this.tick += 1;
   }
 
@@ -161,45 +239,156 @@ export class Simulation {
     return events;
   }
 
-  private updateProjectiles(): void {
-    let kept = 0;
-    for (const projectile of this.projectiles) {
-      const removal = moveProjectile(projectile, this.dt, ISLAND_COLLIDERS, ARENA_BOUNDS);
-      if (removal) {
-        this.projectilesRemoved[removal] += 1;
-        this.events.push({
-          type: 'projectileRemoved',
-          id: projectile.id,
-          x: projectile.x,
-          y: projectile.y,
-          reason: removal,
-        });
-      } else {
-        this.projectiles[kept++] = projectile;
-      }
+  private updateStuckState(
+    enemy: Enemy,
+    maxSpeed: number,
+    controls: ShipControls,
+    start: { x: number; y: number },
+  ): void {
+    const { ai } = this.config.enemies;
+    const { stepsPerSecond } = this.config.simulation;
+    const moved = Math.hypot(enemy.x - start.x, enemy.y - start.y);
+    const barelyMoving = moved < maxSpeed * this.dt * ai.stuckSpeedRatio;
+    enemy.stuckTicks = controls.throttle && barelyMoving ? enemy.stuckTicks + 1 : 0;
+    if (enemy.stuckTicks >= secondsToTicks(ai.stuckSeconds, stepsPerSecond)) {
+      enemy.stuckTicks = 0;
+      enemy.unstuckUntil = this.tick + secondsToTicks(ai.unstuckSeconds, stepsPerSecond);
     }
-    this.projectiles.length = kept;
   }
 
-  private fireWeapons(input: InputState): void {
+  private damagePlayer(damage: number, x: number, y: number): void {
+    this.player.hp = Math.max(0, this.player.hp - damage);
+    this.events.push({ type: 'shipHit', targetId: PLAYER_ID, x, y, damage });
+  }
+
+  private destroyEnemy(enemy: Enemy, cause: DestroyCause): void {
+    if (!enemy.alive) return;
+    enemy.alive = false;
+    this.enemiesDestroyed[cause] += 1;
+    if (cause === 'playerFire') this.score += 1;
+    this.events.push({
+      type: 'shipDestroyed',
+      id: enemy.id,
+      kind: enemy.kind,
+      x: enemy.x,
+      y: enemy.y,
+      cause,
+    });
+    // A destroyed enemy stops causing damage: its projectiles in flight are removed too.
+    for (const projectile of this.projectiles) {
+      if (projectile.ownerId === enemy.id) this.removeProjectile(projectile, 'ownerDestroyed');
+    }
+  }
+
+  private removeProjectile(projectile: Projectile, reason: ProjectileRemoval): void {
+    if (this.removedProjectiles.has(projectile.id)) return;
+    this.removedProjectiles.add(projectile.id);
+    this.projectilesRemoved[reason] += 1;
+    this.events.push({
+      type: 'projectileRemoved',
+      id: projectile.id,
+      x: projectile.x,
+      y: projectile.y,
+      reason,
+    });
+  }
+
+  private updateProjectiles(): void {
+    // Hull positions are final for this step. Living enemies are filtered per projectile,
+    // so an enemy destroyed by one projectile cannot be hit by the next.
+    const enemyTargets = this.enemies.map((enemy) => ({
+      enemy,
+      target: {
+        id: enemy.id,
+        circles: hullCircles(enemy, this.enemyConfig(enemy.kind).hull),
+      } satisfies ProjectileTarget,
+    }));
+    const playerTargets: ProjectileTarget[] = [
+      { id: PLAYER_ID, circles: hullCircles(this.player, this.config.player.hull) },
+    ];
+
+    for (const projectile of this.projectiles) {
+      // Removed earlier in this step (e.g. its owner was destroyed): it does nothing.
+      if (this.removedProjectiles.has(projectile.id)) continue;
+      const targets =
+        projectile.owner === 'player'
+          ? enemyTargets.filter(({ enemy }) => enemy.alive).map(({ target }) => target)
+          : playerTargets;
+      const outcome = moveProjectile(projectile, this.dt, ISLAND_COLLIDERS, ARENA_BOUNDS, targets);
+      if (!outcome) continue;
+
+      this.removeProjectile(projectile, outcome.reason);
+      if (outcome.reason !== 'ship') continue;
+      if (outcome.targetId === PLAYER_ID) {
+        this.damagePlayer(projectile.damage, projectile.x, projectile.y);
+        continue;
+      }
+      const enemy = this.enemies.find((candidate) => candidate.id === outcome.targetId)!;
+      enemy.hp = Math.max(0, enemy.hp - projectile.damage);
+      this.events.push({
+        type: 'shipHit',
+        targetId: enemy.id,
+        x: projectile.x,
+        y: projectile.y,
+        damage: projectile.damage,
+      });
+      if (enemy.hp === 0) this.destroyEnemy(enemy, 'playerFire');
+    }
+
+    this.compactProjectiles();
+  }
+
+  private compactProjectiles(): void {
+    if (this.removedProjectiles.size === 0) return;
+    let kept = 0;
+    for (const projectile of this.projectiles) {
+      if (!this.removedProjectiles.has(projectile.id)) this.projectiles[kept++] = projectile;
+    }
+    this.projectiles.length = kept;
+    this.removedProjectiles.clear();
+  }
+
+  private spawnShot(ship: Ship, ownerId: number, slot: WeaponSlot, weapon: WeaponConfig): void {
+    const shot = createShot(ship, slot, weapon, this.config.simulation.stepsPerSecond);
+    for (const projectile of shot) {
+      this.projectiles.push({
+        ...projectile,
+        id: this.nextProjectileId++,
+        owner: ownerId === PLAYER_ID ? 'player' : 'enemy',
+        ownerId,
+      });
+    }
+    this.events.push({
+      type: 'shot',
+      ownerId,
+      muzzles: shot.map(({ x, y }) => ({ x, y })),
+      heading: ship.heading,
+    });
+  }
+
+  private firePlayerWeapons(input: InputState): void {
     const { stepsPerSecond } = this.config.simulation;
     for (const slot of WEAPON_SLOTS) {
       if (!input[FIRE_INPUT[slot]] || this.tick < this.weaponReadyAt[slot]) continue;
-
       const weapon = slot === 'front' ? this.config.weapons.front : this.config.weapons.side;
       this.weaponReadyAt[slot] = this.tick + secondsToTicks(weapon.cooldown, stepsPerSecond);
       this.shotsFired[slot] += 1;
+      this.spawnShot(this.player, PLAYER_ID, slot, weapon);
+    }
+  }
 
-      const shot = createShot(this.player, slot, weapon, stepsPerSecond);
-      for (const projectile of shot) {
-        this.projectiles.push({ ...projectile, id: this.nextProjectileId++, owner: 'player' });
-      }
-      this.events.push({
-        type: 'shot',
-        weapon: slot,
-        muzzles: shot.map(({ x, y }) => ({ x, y })),
-        heading: this.player.heading,
-      });
+  private fireShooters(): void {
+    const shooter = this.config.enemies.shooter;
+    for (const enemy of this.enemies) {
+      if (!enemy.alive || enemy.kind !== 'shooter' || this.tick < enemy.weaponReadyAt) continue;
+      const distance = Math.hypot(this.player.x - enemy.x, this.player.y - enemy.y);
+      const offAxis = Math.abs(wrapAngle(headingTowards(enemy, this.player) - enemy.heading));
+      if (distance > shooter.attackRange || offAxis > shooter.fireCone) continue;
+
+      enemy.weaponReadyAt =
+        this.tick + secondsToTicks(shooter.weapon.cooldown, this.config.simulation.stepsPerSecond);
+      this.enemyShotsFired += 1;
+      this.spawnShot(enemy, enemy.id, 'front', shooter.weapon);
     }
   }
 }

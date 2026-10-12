@@ -85,6 +85,32 @@ export function segmentAabbEntry(
   return tMin;
 }
 
+/**
+ * Where the segment from (x0, y0) to (x1, y1) first touches the circle, as a fraction of
+ * the segment in [0, 1] (0 when it starts inside), or null when it misses.
+ */
+export function segmentCircleEntry(
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  circle: Circle,
+): number | null {
+  const fx = x0 - circle.x;
+  const fy = y0 - circle.y;
+  const c = fx * fx + fy * fy - circle.radius * circle.radius;
+  if (c <= 0) return 0;
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const a = dx * dx + dy * dy;
+  if (a === 0) return null;
+  const b = 2 * (fx * dx + fy * dy);
+  const discriminant = b * b - 4 * a * c;
+  if (discriminant < 0) return null;
+  const t = (-b - Math.sqrt(discriminant)) / (2 * a);
+  return t >= 0 && t <= 1 ? t : null;
+}
+
 /** Translation that keeps a circle inside the bounds (zero vector when already inside). */
 export function circleBoundsPush(circle: Circle, bounds: Aabb): Vec {
   let x = 0;
