@@ -5,6 +5,7 @@ import {
   subscribeAssetProgress,
   type GameTextures,
 } from '../game/assets.ts';
+import { DEFAULT_GAME_CONFIG } from '../game/config.ts';
 import { GameRuntime } from '../game/GameRuntime.ts';
 
 type LoadState =
@@ -67,7 +68,8 @@ function GameCanvas({ textures }: { textures: GameTextures }) {
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    const runtime = new GameRuntime(host, textures);
+    const debugColliders = new URLSearchParams(window.location.search).get('debug') === 'colliders';
+    const runtime = new GameRuntime(host, textures, DEFAULT_GAME_CONFIG, { debugColliders });
     runtime.start().catch(() => {
       runtime.destroy();
       setFailed(true);

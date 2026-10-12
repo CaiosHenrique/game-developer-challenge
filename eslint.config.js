@@ -23,4 +23,17 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
+  {
+    // The simulation is pure game logic: no rendering, UI, DOM input or asset loading.
+    files: ['src/game/sim/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: ['pixi.js', 'react', 'react-dom'],
+          patterns: ['**/GameRuntime*', '**/assets*', '**/input*', '**/app/**'],
+        },
+      ],
+    },
+  },
 );

@@ -28,9 +28,9 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], channel, viewport: { width: 1280, height: 720 } },
     },
   ],
-  // Tests run against the production build, with the real MSW service worker.
+  // Tests run against a production build with test hooks (--mode e2e) and the real MSW worker.
   webServer: {
-    command: 'npm run build && npm run preview',
+    command: 'npm run build:e2e && npm run preview',
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

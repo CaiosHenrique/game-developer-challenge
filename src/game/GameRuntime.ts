@@ -1,14 +1,31 @@
-import { Application, Container, Sprite, TilingSprite } from 'pixi.js';
-import { ISLAND_FRAMES, ISLANDS, PLAYER_START, WORLD_HEIGHT, WORLD_WIDTH } from './arena.ts';
+import { Application, Container, Graphics, Sprite, TilingSprite, type Ticker } from 'pixi.js';
+import {
+  ARENA_BOUNDS,
+  ISLAND_COLLIDERS,
+  ISLAND_FRAMES,
+  ISLANDS,
+  WORLD_HEIGHT,
+  WORLD_WIDTH,
+} from './arena.ts';
 import { getFrame, SHIP_FRAMES, type GameTextures } from './assets.ts';
+import type { GameConfig } from './config.ts';
+import { KeyboardInput } from './input.ts';
+import { hullCircles, Simulation } from './sim/simulation.ts';
+import { installTestHooks } from './testHooks.ts';
 
-/** Ship sprites point down (+Y) in the source art; this rotation makes heading 0 point up. */
-const SHIP_SPRITE_ROTATION = Math.PI;
+/** Ship sprites point down (+Y) in the source art; heading 0 points up. */
+const SHIP_SPRITE_ROTATION_OFFSET = Math.PI;
+
+export type GameRuntimeOptions = {
+  /** Draws collision shapes on top of the scene (`?debug=colliders`). */
+  debugColliders?: boolean;
+};
 
 /**
- * Owns the PixiJS application of one game screen. `destroy()` may be called before the
- * asynchronous `start()` finishes (React Strict Mode mounts, unmounts and remounts effects),
- * in which case `start()` tears the application down as soon as `init()` resolves.
+ * Owns the PixiJS application of one game screen and drives the simulation with a
+ * fixed-step clock. `destroy()` may be called before the asynchronous `start()` finishes
+ * (React Strict Mode mounts, unmounts and remounts effects), in which case `start()` tears
+ * the application down as soon as `init()` resolves.
  */
 export class GameRuntime {
   /** Number of initialized runtimes that were not destroyed yet (used to detect leaks). */
@@ -16,14 +33,25 @@ export class GameRuntime {
 
   private readonly app = new Application();
   private readonly world = new Container();
+  private readonly simulation: Simulation;
+  private readonly keyboard = new KeyboardInput();
+  private playerSprite: Sprite | null = null;
+  private debugLayer: Graphics | null = null;
+  private accumulator = 0;
+  private manualClock = false;
   private initialized = false;
   private disposed = false;
   private resizeObserver: ResizeObserver | null = null;
+  private uninstallTestHooks: (() => void) | null = null;
 
   constructor(
     private readonly host: HTMLElement,
     private readonly textures: GameTextures,
-  ) {}
+    private readonly config: GameConfig,
+    private readonly options: GameRuntimeOptions = {},
+  ) {
+    this.simulation = new Simulation(config);
+  }
 
   async start(): Promise<void> {
     await this.app.init({
@@ -50,6 +78,17 @@ export class GameRuntime {
     this.resizeObserver = new ResizeObserver(() => this.fitToHost());
     this.resizeObserver.observe(this.host);
     this.fitToHost();
+
+    this.keyboard.attach(window);
+    this.app.ticker.add(this.onTick);
+    this.uninstallTestHooks = installTestHooks({
+      getState: () => this.snapshot(),
+      setManualClock: (enabled) => {
+        this.manualClock = enabled;
+        this.accumulator = 0;
+      },
+      advance: (ms) => this.advance(ms / 1000),
+    });
   }
 
   destroy(): void {
@@ -58,12 +97,41 @@ export class GameRuntime {
     // Not initialized yet: start() finishes the cleanup when init() resolves.
     if (!this.initialized) return;
 
+    this.uninstallTestHooks?.();
+    this.keyboard.detach();
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
-    // Removes the canvas and destroys the scene graph. Textures are shared between
-    // matches and stay in the asset cache.
+    // Stops the ticker, removes the canvas and destroys the scene graph. Textures are shared
+    // between matches and stay in the asset cache.
     this.app.destroy(true, { children: true });
     GameRuntime.liveInstances -= 1;
+  }
+
+  private readonly onTick = (ticker: Ticker): void => {
+    if (!this.manualClock) {
+      this.advance(Math.min(ticker.deltaMS / 1000, this.config.simulation.maxFrameSeconds));
+    }
+    this.render();
+  };
+
+  /** Runs as many fixed simulation steps as the elapsed time covers. */
+  private advance(seconds: number): void {
+    const step = this.config.simulation.stepSeconds;
+    this.accumulator += seconds;
+    // The epsilon absorbs floating-point error, so e.g. 500 ms is exactly 30 steps.
+    while (this.accumulator >= step - 1e-9) {
+      this.simulation.step(step, this.keyboard.state);
+      this.accumulator -= step;
+    }
+  }
+
+  private render(): void {
+    const player = this.simulation.player;
+    if (this.playerSprite) {
+      this.playerSprite.position.set(player.x, player.y);
+      this.playerSprite.rotation = player.heading + SHIP_SPRITE_ROTATION_OFFSET;
+    }
+    if (this.debugLayer) this.drawColliders(this.debugLayer);
   }
 
   private buildScene(): void {
@@ -82,10 +150,35 @@ export class GameRuntime {
       this.world.addChild(sprite);
     }
 
-    const player = new Sprite({ texture: getFrame(ships, SHIP_FRAMES.player), anchor: 0.5 });
-    player.position.set(PLAYER_START.x, PLAYER_START.y);
-    player.rotation = SHIP_SPRITE_ROTATION;
-    this.world.addChild(player);
+    this.playerSprite = new Sprite({ texture: getFrame(ships, SHIP_FRAMES.player), anchor: 0.5 });
+    this.world.addChild(this.playerSprite);
+
+    if (this.options.debugColliders) {
+      this.debugLayer = new Graphics();
+      this.world.addChild(this.debugLayer);
+    }
+    this.render();
+  }
+
+  private drawColliders(graphics: Graphics): void {
+    graphics.clear();
+    for (const box of ISLAND_COLLIDERS) {
+      graphics.rect(box.minX, box.minY, box.maxX - box.minX, box.maxY - box.minY);
+    }
+    for (const circle of hullCircles(this.simulation.player, this.config.player.hull)) {
+      graphics.circle(circle.x, circle.y, circle.radius);
+    }
+    graphics.stroke({ width: 2, color: 0xff3366 });
+  }
+
+  private snapshot() {
+    const player = this.simulation.player;
+    return {
+      elapsed: this.simulation.elapsed,
+      player: { ...player, hull: hullCircles(player, this.config.player.hull) },
+      islands: ISLAND_COLLIDERS.map((box) => ({ ...box })),
+      arena: { ...ARENA_BOUNDS },
+    };
   }
 
   /** Resizes the renderer to the host and letterboxes the fixed-size world inside it. */
