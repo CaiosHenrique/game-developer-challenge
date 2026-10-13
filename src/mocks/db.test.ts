@@ -161,3 +161,78 @@ test('without usable storage the data lives in memory, without failing', () => {
     assert.equal(db.ranking('120s-5s', 1, 10).totalItems, 1);
   }
 });
+
+test('registering a match is idempotent; another record under the same id is a conflict', () => {
+  const storage = createMemoryStorage();
+  const db = new MockDb(storage, () => []);
+  const match = record({ matchId: 'mine', score: 7 });
+  assert.equal(db.upsert(match).outcome, 'created');
+  // The same record again (even with keys in another order) returns the stored one.
+  const reordered = { ...match, config: { spawnIntervalSeconds: 5, sessionSeconds: 120 } };
+  assert.deepEqual(db.upsert(reordered), { outcome: 'existing', record: match });
+  const changed = db.upsert({ ...match, score: 8 });
+  assert.equal(changed.outcome, 'conflict');
+  assert.equal(changed.record.score, 7);
+  assert.equal(db.ranking('120s-5s', 1, 10).totalItems, 1);
+  // The registered match is stored for the next page load.
+  assert.equal(new MockDb(storage, () => []).ranking('120s-5s', 1, 10).totalItems, 1);
+});
+
+test('read-only storage: stored data is still read, new records live in memory', () => {
+  const storage = createMemoryStorage();
+  new MockDb(storage, () => [record({ matchId: 'stored' })]);
+  const readOnly = {
+    ...storage,
+    getItem: storage.getItem,
+    setItem: () => {
+      throw new DOMException('full', 'QuotaExceededError');
+    },
+  } as Storage;
+  const db = new MockDb(readOnly, () => [record({ matchId: 'fixture' })]);
+  assert.equal(db.persistence, 'memory');
+  assert.equal(db.ranking('120s-5s', 1, 10).items[0]!.matchId, 'stored');
+  assert.equal(db.upsert(record({ matchId: 'new' })).outcome, 'created');
+  assert.equal(db.ranking('120s-5s', 1, 10).totalItems, 2);
+});
+
+test('a write that fails after start-up switches to memory and tells the listeners', () => {
+  const storage = createMemoryStorage();
+  const db = new MockDb(storage, () => []);
+  const changes: string[] = [];
+  db.onPersistenceChange((persistence) => changes.push(persistence));
+  assert.equal(db.persistence, 'local');
+  storage.setItem = () => {
+    throw new DOMException('full', 'QuotaExceededError');
+  };
+  assert.equal(db.upsert(record({ matchId: 'late' })).outcome, 'created');
+  assert.equal(db.persistence, 'memory');
+  assert.deepEqual(changes, ['memory']);
+  assert.equal(db.ranking('120s-5s', 1, 10).totalItems, 1); // still served this session
+  db.upsert(record({ matchId: 'later' }));
+  assert.deepEqual(changes, ['memory']); // told once
+});
+
+test('two tabs registering matches never lose each other’s confirmed records', () => {
+  const storage = createMemoryStorage();
+  // Each tab runs its own mock API over the same storage.
+  const tabA = new MockDb(storage, () => []);
+  const tabB = new MockDb(storage, () => []);
+  assert.equal(tabA.upsert(record({ matchId: 'A', playerId: 'me' })).outcome, 'created');
+  assert.equal(tabB.upsert(record({ matchId: 'B', playerId: 'me' })).outcome, 'created');
+  const ids = (db: MockDb) => db.playerMatches('me', 1, 10).items.map((match) => match.matchId);
+  assert.deepEqual(ids(new MockDb(storage, () => [])).sort(), ['A', 'B']); // after a reload
+  assert.deepEqual(ids(tabA).sort(), ['A', 'B']); // tab A sees tab B's match
+  // Sending A again from tab B is recognised (idempotent), not stored twice.
+  assert.equal(tabB.upsert(record({ matchId: 'A', playerId: 'me' })).outcome, 'existing');
+});
+
+test('in memory, a tab keeps its own records instead of re-reading storage', () => {
+  const storage = createMemoryStorage();
+  const db = new MockDb(storage, () => []);
+  storage.setItem = () => {
+    throw new DOMException('full', 'QuotaExceededError');
+  };
+  db.upsert(record({ matchId: 'only-in-memory', playerId: 'me' }));
+  assert.equal(db.persistence, 'memory');
+  assert.equal(db.playerMatches('me', 1, 10).totalItems, 1);
+});

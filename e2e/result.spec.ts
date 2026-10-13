@@ -47,10 +47,13 @@ test.describe('result and match lifecycle', () => {
     // The Result screen replaced the /play entry instead of adding one.
     expect(await page.evaluate(() => history.length)).toBe(historyDuringMatch);
     await expect(page.getByTestId('result-saved')).toHaveText('Yes');
+    // Once the online ranking confirms the match, its confirmation is recorded on the result.
+    await expect(page.getByTestId('result-registration')).toHaveText('Submitted');
     const stored = (await storedResult(page))!;
     expect(stored).toMatchObject({ score: 0, reason: 'time', timePlayedSeconds: 120 });
     expect(Date.parse(stored.finishedAt)).not.toBeNaN();
-    expect(await resultWrites(page)).toBe(1);
+    expect(Date.parse(stored.submittedAt!)).not.toBeNaN();
+    expect(await resultWrites(page)).toBe(2); // the result, then its confirmation
 
     await page.reload();
     await expect(page).toHaveURL(/\/result\?/);

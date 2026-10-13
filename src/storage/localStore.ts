@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { sanitizeOptions, type GameOptions } from '../game/options.ts';
+import { sanitizeOptions, validateOptions, type GameOptions } from '../game/options.ts';
 import { randomId } from '../ids.ts';
 
 /** Versioned keys: a change of shape gets a new key instead of misreading old data. */
@@ -7,6 +7,7 @@ export const STORAGE_KEYS = {
   options: 'pirate-battle.options.v1',
   lastResult: 'pirate-battle.lastResult.v1',
   player: 'pirate-battle.player.v1',
+  pendingMatches: 'pirate-battle.pendingMatches.v1',
 } as const;
 
 /** The result of a completed match, as stored on this device. */
@@ -18,6 +19,8 @@ export type StoredResult = {
   timePlayedSeconds: number;
   reason: 'time' | 'death';
   options: GameOptions;
+  /** ISO timestamp of when the online ranking confirmed the match (absent until then). */
+  submittedAt?: string;
 };
 
 const storedResultSchema = z.object({
@@ -27,6 +30,7 @@ const storedResultSchema = z.object({
   timePlayedSeconds: z.number().nonnegative(),
   reason: z.enum(['time', 'death']),
   options: z.object({ sessionSeconds: z.number(), spawnIntervalSeconds: z.number() }),
+  submittedAt: z.string().min(1).optional(),
 });
 
 /** The browser's storage, or null when it is unavailable (e.g. blocked by privacy settings). */
@@ -74,6 +78,17 @@ export function loadLastResult(storage = browserStorage()): StoredResult | null 
   return parsed.success ? { ...parsed.data, options: sanitizeOptions(parsed.data.options) } : null;
 }
 
+/**
+ * The stored last result exactly as it was recorded, or null when it is missing or any field
+ * is invalid. Unlike `loadLastResult`, invalid options are not replaced by the defaults: this
+ * is what may be sent to the online ranking, so it must be the match as it was played.
+ */
+export function loadLastResultExact(storage = browserStorage()): StoredResult | null {
+  const parsed = storedResultSchema.safeParse(readJson(storage, STORAGE_KEYS.lastResult));
+  if (!parsed.success) return null;
+  return Object.keys(validateOptions(parsed.data.options)).length === 0 ? parsed.data : null;
+}
+
 export type SaveOutcome = 'saved' | 'duplicate' | 'failed';
 
 /**
@@ -83,6 +98,33 @@ export type SaveOutcome = 'saved' | 'duplicate' | 'failed';
 export function saveLastResult(result: StoredResult, storage = browserStorage()): SaveOutcome {
   if (loadLastResult(storage)?.matchId === result.matchId) return 'duplicate';
   return writeJson(storage, STORAGE_KEYS.lastResult, result) ? 'saved' : 'failed';
+}
+
+/**
+ * Records on this device that the online ranking confirmed the match, if it is the stored
+ * last result. `not-current`: the stored result is another match (nothing to record);
+ * `failed`: it could not be written.
+ */
+export function markResultSubmitted(
+  matchId: string,
+  submittedAt: string,
+  storage = browserStorage(),
+): 'updated' | 'not-current' | 'failed' {
+  if (!storage) return 'failed';
+  let current: StoredResult | null;
+  try {
+    const parsed = storedResultSchema.safeParse(
+      JSON.parse(storage.getItem(STORAGE_KEYS.lastResult) ?? 'null'),
+    );
+    current = parsed.success ? parsed.data : null;
+  } catch {
+    return 'failed';
+  }
+  if (current?.matchId !== matchId) return 'not-current';
+  if (current.submittedAt) return 'updated';
+  return writeJson(storage, STORAGE_KEYS.lastResult, { ...current, submittedAt })
+    ? 'updated'
+    : 'failed';
 }
 
 /**

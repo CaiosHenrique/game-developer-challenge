@@ -105,8 +105,8 @@ function MenuTabs({ options, player, mockApi }: RecordsProps) {
       ))}
       {mockApi.state === 'running' && mockApi.persistence === 'memory' && (
         <p className="records-note">
-          Storage is unavailable in this browser: ranking and history data are kept in memory only
-          and reset when the page reloads.
+          Storage is unavailable or full in this browser: ranking and history data are kept in
+          memory only and reset when the page reloads.
         </p>
       )}
     </div>

@@ -418,3 +418,32 @@ kbd {
     font-size: 0.8rem;
   }
 }
+
+/* Battles waiting to be submitted (match history) */
+.records-pending {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.6rem;
+  padding: 0.5rem;
+  border: 1px dashed #b9742f;
+  border-radius: 0.4rem;
+}
+
+.menu-tabpanel .records-pending-title {
+  color: #f7d9a2;
+  font-weight: 700;
+}
+
+.records-pending ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+}
+
+/* Below the status text, so long messages are not squeezed. */
+.result-retry {
+  display: block;
+  margin: 0.4rem 0 0 auto;
+}

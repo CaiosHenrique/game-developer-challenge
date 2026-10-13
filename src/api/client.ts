@@ -1,6 +1,7 @@
 import type { z } from 'zod';
 import {
   matchPageSchema,
+  matchRecordSchema,
   rankingPageSchema,
   type MatchRecord,
   type Page,
@@ -58,4 +59,22 @@ export function fetchPlayerMatches(
     { ...request },
     signal,
   );
+}
+
+/**
+ * Registers a completed match. The server is idempotent: sending the same record again
+ * returns the stored one. The answer must be that same match.
+ */
+export async function submitMatch(record: MatchRecord): Promise<MatchRecord> {
+  let data: unknown;
+  try {
+    ({ data } = await http.put<unknown>(`/matches/${encodeURIComponent(record.matchId)}`, record));
+  } catch (error) {
+    throw toApiError(error);
+  }
+  const parsed = matchRecordSchema.safeParse(data);
+  if (!parsed.success || parsed.data.matchId !== record.matchId) {
+    throw new ApiError('invalid-response', 'The server sent data in an unexpected format.');
+  }
+  return parsed.data;
 }

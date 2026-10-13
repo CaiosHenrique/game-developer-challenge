@@ -7,6 +7,8 @@ import { createHandlers } from './handlers.ts';
 /** Test-only (e2e build): adds one-off handlers to the running mock API from Playwright. */
 export type PirateMocksApi = {
   worker: SetupWorker;
+  /** The mock API's data, e.g. to count records or commit one before a failure. */
+  db: MockDb;
   http: typeof http;
   HttpResponse: typeof HttpResponse;
   delay: typeof delay;
@@ -22,7 +24,9 @@ declare global {
  * Starts the mock API. It runs in every build (including production), because the
  * ranking and match-history APIs only exist as MSW mocks.
  */
-export async function startMockApi(): Promise<{ persistence: MockPersistence }> {
+export async function startMockApi(
+  onPersistence: (persistence: MockPersistence) => void,
+): Promise<void> {
   const db = new MockDb(browserStorage());
   const worker = setupWorker(...createHandlers(db));
   await worker.start({
@@ -30,6 +34,9 @@ export async function startMockApi(): Promise<{ persistence: MockPersistence }> 
     onUnhandledRequest: 'bypass',
     quiet: import.meta.env.PROD,
   });
-  if (import.meta.env.MODE === 'e2e') window.__pirateMocks = { worker, http, HttpResponse, delay };
-  return { persistence: db.persistence };
+  if (import.meta.env.MODE === 'e2e') {
+    window.__pirateMocks = { worker, db, http, HttpResponse, delay };
+  }
+  onPersistence(db.persistence);
+  db.onPersistenceChange(onPersistence);
 }

@@ -2,6 +2,7 @@ import { delay, http, HttpResponse } from 'msw';
 import type { z } from 'zod';
 import {
   matchPageSchema,
+  matchRecordSchema,
   pageQuerySchema,
   rankingPageSchema,
   rankingQuerySchema,
@@ -49,6 +50,30 @@ export function createHandlers(db: MockDb) {
       const { page, pageSize } = query.data;
       const matches = db.playerMatches(String(params.playerId), page, pageSize);
       return HttpResponse.json(matchPageSchema.parse(matches));
+    }),
+
+    // Registers a completed match. Idempotent: sending the same record again returns the
+    // stored one (200), never a second entry; another record under the same id is a conflict.
+    http.put('/api/matches/:matchId', async ({ request, params }) => {
+      let body: unknown;
+      try {
+        body = await request.json();
+      } catch {
+        return errorResponse(400, 'invalid_request', 'The body is not valid JSON.');
+      }
+      const record = matchRecordSchema.safeParse(body);
+      if (!record.success) return badRequest(record.error);
+      if (record.data.matchId !== params.matchId) {
+        return errorResponse(400, 'match_id_mismatch', 'The match id does not match the URL.');
+      }
+      await delay(MOCK_LATENCY_MS);
+      const result = db.upsert(record.data);
+      if (result.outcome === 'conflict') {
+        return errorResponse(409, 'conflict', 'Another record already uses this match id.');
+      }
+      return HttpResponse.json(matchRecordSchema.parse(result.record), {
+        status: result.outcome === 'created' ? 201 : 200,
+      });
     }),
 
     // Anything else under /api is not part of the API (instead of reaching the web server).

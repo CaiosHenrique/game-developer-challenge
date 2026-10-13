@@ -4,8 +4,10 @@ import { test } from 'node:test';
 import { DEFAULT_OPTIONS } from '../game/options.ts';
 import {
   loadLastResult,
+  loadLastResultExact,
   loadOptions,
   loadOrCreatePlayer,
+  markResultSubmitted,
   playerNameFor,
   saveLastResult,
   saveOptions,
@@ -118,4 +120,43 @@ test('without storage the player identity lasts for this page load only', () => 
     assert.equal(player.persisted, false);
   }
   assert.equal(playerNameFor('---'), 'Captain X');
+});
+
+test('the confirmation of a submitted match is recorded on the stored result once', () => {
+  const { storage, writes } = memoryStorage();
+  saveLastResult(RESULT, storage);
+  assert.equal(
+    markResultSubmitted('other-match', '2026-10-12T12:05:00.000Z', storage),
+    'not-current',
+  );
+  assert.equal(markResultSubmitted(RESULT.matchId, '2026-10-12T12:05:00.000Z', storage), 'updated');
+  assert.equal(loadLastResult(storage)?.submittedAt, '2026-10-12T12:05:00.000Z');
+  const before = writes();
+  assert.equal(markResultSubmitted(RESULT.matchId, '2026-10-13T00:00:00.000Z', storage), 'updated');
+  assert.equal(writes(), before); // already recorded: no second write
+  assert.equal(loadLastResult(storage)?.submittedAt, '2026-10-12T12:05:00.000Z');
+});
+
+test('recording a confirmation reports storage failures', () => {
+  const failing = memoryStorage({ failWrites: true });
+  failing.data.set(STORAGE_KEYS.lastResult, JSON.stringify(RESULT));
+  assert.equal(
+    markResultSubmitted(RESULT.matchId, '2026-10-12T12:05:00.000Z', failing.storage),
+    'failed',
+  );
+  assert.equal(
+    markResultSubmitted(RESULT.matchId, 'x', memoryStorage({ failReads: true }).storage),
+    'failed',
+  );
+  assert.equal(markResultSubmitted(RESULT.matchId, 'x', null), 'failed');
+});
+
+test('the exact stored result keeps its options; damaged options make it unusable', () => {
+  const { storage, data } = memoryStorage();
+  saveLastResult(RESULT, storage);
+  assert.deepEqual(loadLastResultExact(storage), RESULT);
+  const damaged = { ...RESULT, options: { sessionSeconds: 1000, spawnIntervalSeconds: 5 } };
+  data.set(STORAGE_KEYS.lastResult, JSON.stringify(damaged));
+  assert.equal(loadLastResultExact(storage), null); // never sent with made-up options
+  assert.deepEqual(loadLastResult(storage)?.options, DEFAULT_OPTIONS); // still shown
 });
