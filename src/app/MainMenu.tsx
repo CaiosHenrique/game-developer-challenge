@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { GameOptions } from '../game/options.ts';
 import type { MockApiStatus } from '../mocks/status.ts';
 import type { Player } from '../storage/localStore.ts';
@@ -120,7 +120,21 @@ export function MainMenu({
   mockApi,
   onPlay,
   onOptions,
-}: RecordsProps & { onPlay: () => void; onOptions: () => void }) {
+  focusOptions = false,
+  onFocusRestored,
+}: RecordsProps & {
+  onPlay: () => void;
+  onOptions: () => void;
+  /** Back from the Options screen: keyboard focus returns to the Options button. */
+  focusOptions?: boolean;
+  onFocusRestored?: () => void;
+}) {
+  const optionsButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!focusOptions) return;
+    optionsButton.current?.focus();
+    onFocusRestored?.();
+  }, [focusOptions, onFocusRestored]);
   const touchDevice = useMediaQuery(TOUCH_DEVICE_QUERY);
   return (
     <main className="menu-screen">
@@ -133,7 +147,7 @@ export function MainMenu({
           <button type="button" className="menu-button" onClick={onPlay}>
             Play
           </button>
-          <button type="button" className="menu-button" onClick={onOptions}>
+          <button ref={optionsButton} type="button" className="menu-button" onClick={onOptions}>
             Options
           </button>
         </div>

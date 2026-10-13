@@ -117,7 +117,10 @@
 
 .menu-button:focus-visible,
 .menu-tab:focus-visible,
-.options-form input:focus-visible {
+.options-form input:focus-visible,
+.records-button:focus-visible,
+.mock-panel summary:focus-visible,
+.mock-panel select:focus-visible {
   outline: 3px solid #f4c56a;
   outline-offset: 3px;
 }

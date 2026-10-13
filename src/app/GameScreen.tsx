@@ -57,7 +57,7 @@ export function GameScreen({ match, ...callbacks }: { match: MatchRequest } & Ma
   };
 
   return (
-    <div className="game-screen">
+    <main className="game-screen">
       {loadState.status === 'ready' ? (
         <Match textures={loadState.textures} match={match} {...callbacks} />
       ) : (
@@ -83,7 +83,7 @@ export function GameScreen({ match, ...callbacks }: { match: MatchRequest } & Ma
           </button>
         </div>
       )}
-    </div>
+    </main>
   );
 }
 

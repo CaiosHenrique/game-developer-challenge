@@ -107,6 +107,14 @@ export function App({ mockApi }: { mockApi: MockApiStatusStore }) {
   const showResult = useCallback(() => navigate('/result', { replace: true }), []);
   const goHome = useCallback(() => navigate('/'), []);
 
+  /** Set when leaving Options with its Main Menu button: the menu focuses Options again. */
+  const [focusOptions, setFocusOptions] = useState(false);
+  const backFromOptions = useCallback(() => {
+    setFocusOptions(true);
+    navigate('/');
+  }, []);
+  const optionsFocused = useCallback(() => setFocusOptions(false), []);
+
   const handleSaveOptions = useCallback((next: GameOptions) => {
     setOptions(next);
     return saveOptions(next);
@@ -117,7 +125,9 @@ export function App({ mockApi }: { mockApi: MockApiStatusStore }) {
   function screen() {
     switch (route.path) {
       case '/options':
-        return <OptionsScreen options={options} onSave={handleSaveOptions} onBack={goHome} />;
+        return (
+          <OptionsScreen options={options} onSave={handleSaveOptions} onBack={backFromOptions} />
+        );
       case '/play':
         return route.match ? (
           <GameScreen
@@ -147,6 +157,8 @@ export function App({ mockApi }: { mockApi: MockApiStatusStore }) {
             mockApi={mockApiStatus}
             onPlay={startMatch}
             onOptions={() => navigate('/options')}
+            focusOptions={focusOptions}
+            onFocusRestored={optionsFocused}
           />
         );
     }

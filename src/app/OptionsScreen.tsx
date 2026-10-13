@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   DEFAULT_OPTIONS,
   OPTION_LIMITS,
@@ -32,6 +32,9 @@ export function OptionsScreen({
 }) {
   const [fields, setFields] = useState<Fields>(() => toFields(options));
   const [status, setStatus] = useState<'idle' | 'saved' | 'notStored'>('idle');
+  /** Keyboard focus starts on the first field when the screen opens. */
+  const firstField = useRef<HTMLInputElement>(null);
+  useEffect(() => firstField.current?.focus(), []);
   const values = {
     sessionSeconds: toNumber(fields.sessionSeconds),
     spawnIntervalSeconds: toNumber(fields.spawnIntervalSeconds),
@@ -62,6 +65,7 @@ export function OptionsScreen({
           <div className="form-field">
             <label htmlFor="session-seconds">Game session time (seconds)</label>
             <input
+              ref={firstField}
               id="session-seconds"
               name="sessionSeconds"
               type="number"

@@ -140,6 +140,13 @@ body,
   width: calc(256px * var(--hud-scale));
   text-align: center;
   font-size: calc(18px * var(--hud-scale));
+  /* The light text sits on the bright health fill: a dark outline keeps it readable. */
+  text-shadow:
+    -1px -1px 0 #2b1405,
+    1px -1px 0 #2b1405,
+    -1px 1px 0 #2b1405,
+    1px 1px 0 #2b1405,
+    0 0 3px #2b1405;
 }
 
 .hud-counter {

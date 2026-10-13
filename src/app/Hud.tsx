@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { HudState } from '../game/hudStore.ts';
 import { formatClock } from './format.ts';
 import { HEALTH_BAR, HUD_ART } from './uiArt.ts';
@@ -9,6 +10,16 @@ import { useTouchTap } from './useTouchTap.ts';
  */
 export function Hud({ hud, onPause }: { hud: HudState; onPause: () => void }) {
   const pauseTap = useTouchTap(onPause);
+  // When the pause dialog closes and the match runs again, keyboard focus returns to the
+  // button that opens the dialog (instead of being lost with the dialog).
+  const pauseButton = useRef<HTMLButtonElement>(null);
+  const wasPaused = useRef(false);
+  useEffect(() => {
+    if (wasPaused.current && !hud.pauseReason && hud.phase === 'running') {
+      pauseButton.current?.focus();
+    }
+    wasPaused.current = hud.pauseReason !== null;
+  }, [hud.pauseReason, hud.phase]);
   const ratio = Math.min(1, Math.max(0, hud.hp / hud.maxHp));
   const fill =
     ratio > 2 / 3
@@ -56,7 +67,13 @@ export function Hud({ hud, onPause }: { hud: HudState; onPause: () => void }) {
         </div>
       </dl>
       {hud.phase === 'running' && !hud.pauseReason && (
-        <button type="button" className="hud-pause" aria-label="Pause" {...pauseTap}>
+        <button
+          ref={pauseButton}
+          type="button"
+          className="hud-pause"
+          aria-label="Pause"
+          {...pauseTap}
+        >
           <img {...HUD_ART.buttonRound} alt="" />
           <img className="hud-pause-icon" {...HUD_ART.iconPause} alt="" />
         </button>
