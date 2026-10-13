@@ -17,6 +17,9 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: [['html', { open: 'never' }], ['list']],
+  // A missing visual baseline fails the test instead of being written as a new one. Baselines
+  // are only written on purpose, with --update-snapshots (see docs/TESTING.md).
+  updateSnapshots: 'none',
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: 'retain-on-failure',

@@ -2,6 +2,18 @@ import { expect, type Page } from '@playwright/test';
 import { getState, startGame, step } from './helpers.ts';
 
 /**
+ * The visual baselines were made on Windows with Microsoft Edge, and only compare there: on
+ * another system or browser, fonts, font rendering and the graphics stack differ, so a
+ * comparison would report differences that are not regressions.
+ */
+export function isVisualReference(channel: string | undefined): boolean {
+  return process.platform === 'win32' && channel === 'msedge';
+}
+
+export const OUTSIDE_VISUAL_REFERENCE =
+  'Visual baselines exist for Windows with Microsoft Edge (channel msedge) only; see docs/TESTING.md';
+
+/**
  * Screenshot comparison options shared by the visual tests: CSS animations off, no text
  * caret, and at most 100 differing pixels. Measured on the reference environment: repeated
  * runs differ by 0 pixels, while small real changes differ by 900 to 2,400 pixels (a label

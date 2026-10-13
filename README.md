@@ -201,8 +201,14 @@ npm run perf           # performance and memory (separate, long)
 ```
 
 The end-to-end suite runs against a production build with test hooks and the real MSW worker,
-and includes visual regression (Windows + Edge baselines), accessibility scans (axe) and
-keyboard focus checks. What each suite covers and does not cover:
+and includes visual regression, accessibility scans (axe) and keyboard focus checks.
+
+The four visual regression tests compare against baselines made on Windows with Microsoft Edge,
+and run only there. On Linux, macOS or another browser channel they are reported as skipped,
+with the reason, and the rest of the suite runs as usual. A missing baseline fails its test
+and is never written by a normal run: baselines change only with
+`npx playwright test visual --update-snapshots`, after reviewing the differences
+([docs/TESTING.md](docs/TESTING.md#visual-regression-baselines)). What each suite covers and does not cover:
 [docs/TESTING.md](docs/TESTING.md). Measured performance: [docs/perf/README.md](docs/perf/README.md).
 
 ## Assets and attribution

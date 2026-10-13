@@ -53,7 +53,7 @@ code on both, and are covered on desktop.
 | 10  | Ranking and Match History: pages, loading, empty, error                                         | `records` (stable order over every page, loading, empty, 4xx without retry, 5xx and network with retries, refresh on showing a tab, failed page never traps the player), `scenarios`       | `records.mobile` (tabs and pages by touch)                                               |
 | 11  | Registration, both tabs updated, pending submission recovered after refresh                     | `submission` (one PUT, both tabs, queued through a reload and sent at start-up, `online` event, Retry, two tabs)                                                                           | `records.mobile` (submitted match in the history; failed one sent from the pending band) |
 | 12  | Resend after a timeout without duplicates, late answers never overwriting newer data            | `scenarios` (stored but answered too late, out-of-order answers, switching scenario mid-load), `submission` (commit then failure, repeated Retry), `records` (late answer for a page left) | —                                                                                        |
-| —   | Visual regression: menu, arena in a stable state, result                                        | `visual`                                                                                                                                                                                   | `visual.mobile` (arena with touch controls)                                              |
+| —   | Visual regression: menu, arena in a stable state, result                                        | `visual` (Windows + Edge only, skipped elsewhere: see below)                                                                                                                               | `visual.mobile` (arena with touch controls; same condition)                              |
 | —   | Damage feedback: hit tint on the player's ship, health bar pulse, reduced motion                | `damage-feedback` (player only, 0.3 s of simulation time, none after the ship sank)                                                                                                        | —                                                                                        |
 | —   | Hit splinters: three per hit on a ship, none for islands or expired balls, reduced motion       | `hit-debris` (30 ticks, spread, effect pool reused, tint and damage stages unchanged)                                                                                                      | `hit-debris.mobile`                                                                      |
 | —   | Sound effects: nothing before Play, events to sounds, pause, mute, Play Again, failures         | `audio` (record of requested sounds in the e2e build; undecodable files, no Web Audio), `pause` (Tab cycle with the mute switch)                                                           | `audio.mobile` (mute switch by touch)                                                    |
@@ -158,15 +158,36 @@ Microsoft Edge.** Screenshots depend on the operating system, the browser versio
 installed fonts, font rendering and the graphics stack (WebGL renders the arena), so another
 system will report differences that are not regressions. Playwright adds the project and the
 platform to each file name (`-chromium-desktop-win32`), so baselines for another platform
-would be separate files.
+would be separate files; the browser is not part of the name.
 
-To change a baseline on purpose:
+What has actually been checked is narrower than "Windows with Edge": one machine (Windows 11,
+Microsoft Edge 155.0.4283.45, AMD Radeon RX 6600, see [perf/README.md](perf/README.md)), where
+repeated runs differ by 0 pixels. Edge updates itself, and another graphics card renders the
+WebGL arena with its own antialiasing; whether those stay within the tolerance has not been
+measured. If a comparison fails there, look at its diff in the report before anything else.
+
+**Outside the reference environment the visual tests are skipped.** They run only when the
+platform is `win32` and the browser channel is `msedge` (`isVisualReference` in
+`e2e/visual.ts`, the default on Windows). Anywhere else, including Windows with
+`PW_CHANNEL=chromium` or `chrome`, Linux and macOS, the four tests are reported as skipped with
+the reason "Visual baselines exist for Windows with Microsoft Edge (channel msedge) only". The
+rest of the suite runs as usual. On the reference environment the four tests must be reported
+as passed, never as skipped.
+
+**No run writes a baseline unless asked to.** `playwright.config.ts` sets
+`updateSnapshots: 'none'`: a missing baseline fails its test ("A snapshot doesn't exist")
+instead of being saved as a new one. Without that setting, Playwright would save the missing
+image in `e2e/` and fail only that first run, so the next run would compare against an
+unreviewed image. `--update-snapshots` on the command line still overrides the setting.
+
+To change a baseline on purpose (on the reference environment only):
 
 1. Run the visual tests and open the report to review every difference
    (`npx playwright test visual`, then `npm run test:e2e:report`).
 2. Only if every difference is the intended change, regenerate:
    `npx playwright test visual --update-snapshots`.
-3. Look at the new images before versioning them.
+3. Look at the new images, and check that only the expected files changed
+   (`git status -- e2e/`), before versioning them.
 
 Never use `--update-snapshots` to make a failing comparison pass without understanding the
 difference.

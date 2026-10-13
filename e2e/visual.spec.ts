@@ -1,12 +1,21 @@
 import { expect, test } from '@playwright/test';
 import { collectProblems, finishMatch, startGame } from './helpers.ts';
-import { openStableArena, SCREENSHOT, settleVisuals } from './visual.ts';
+import {
+  isVisualReference,
+  openStableArena,
+  OUTSIDE_VISUAL_REFERENCE,
+  SCREENSHOT,
+  settleVisuals,
+} from './visual.ts';
 
 /**
  * Visual regression of the main screens (desktop). Baselines are Windows + Microsoft Edge
  * screenshots, versioned next to this file: see docs/TESTING.md before updating them.
+ * Elsewhere these tests are skipped, with the reason in the report.
  */
 test.describe('visual regression', () => {
+  test.skip(({ channel }) => !isVisualReference(channel), OUTSIDE_VISUAL_REFERENCE);
+
   let problems: string[];
 
   test.beforeEach(({ page }) => {
