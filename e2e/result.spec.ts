@@ -135,12 +135,7 @@ test.describe('result and match lifecycle', () => {
 
     await page.reload();
     await expect(page.getByRole('heading', { level: 1, name: 'No battle yet' })).toBeVisible();
-
-    // Known and handled: the mock API (MSW) cannot start without storage, which the app
-    // reports as a warning while the game keeps working. Any other console output still fails.
-    const mockApiWarning = (message: string) => message.startsWith('Mock API unavailable');
-    expect(problems.some(mockApiWarning)).toBe(true);
-    problems.splice(0, problems.length, ...problems.filter((message) => !mockApiWarning(message)));
+    // The mock API still starts (in memory), so the console stays clean.
   });
 
   test('repeated menu, game and result navigation keeps a single game alive', async ({ page }) => {

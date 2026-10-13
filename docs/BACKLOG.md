@@ -5,14 +5,15 @@ should be reviewed.
 
 ## M3 — Ranking and match history
 
-- **The mock API (MSW) does not start when `localStorage` is unavailable.** When storage
-  access throws (blocked by privacy settings, `SecurityError`), `worker.start()` fails.
-  `src/main.tsx` already handles it: it logs a warning ("Mock API unavailable; ranking and
-  history are offline.") and the app keeps working (game, Options, Result). Ranking and
-  Match History would be offline in that situation. Review in M3: confirm whether MSW itself
-  needs storage, and how the tabs and the pending-submission queue should behave without it.
-  Covered today by `e2e/result.spec.ts` ("without storage the result is shown for the
-  session, never as saved"), which requires that specific warning and nothing else.
+- **Resolved in M3a: the mock API (MSW) now starts when `localStorage` is unavailable.**
+  MSW reads `localStorage` once, while its module loads (its cookie store), and failed when
+  storage access threw. `src/mocks/storageFallback.ts` gives MSW an in-memory storage only
+  while it loads and restores the real one right after, so the app still treats storage as
+  unavailable (the Result screen never claims the match was saved). The mock data then lives
+  in memory and the menu says it resets on reload. If the property cannot be replaced (a
+  browser where it is not configurable), MSW fails as before: the app warns and the tabs show
+  that ranking and history are offline. Covered by `e2e/records.spec.ts` and
+  `e2e/result.spec.ts`.
 
 ## M4 — Playwright suite
 

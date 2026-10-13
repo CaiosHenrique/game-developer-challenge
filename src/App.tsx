@@ -5,21 +5,16 @@ import { OptionsScreen } from './app/OptionsScreen.tsx';
 import { ResultScreen, type SessionResult } from './app/ResultScreen.tsx';
 import { navigate, useRoute, type MatchRequest, type Path } from './app/router.ts';
 import type { MatchResult } from './game/hudStore.ts';
+import { randomId } from './ids.ts';
+import type { MockApiStatus } from './mocks/status.ts';
 import { configFromOptions, type GameOptions } from './game/options.ts';
 import {
   loadOptions,
+  loadOrCreatePlayer,
   saveLastResult,
   saveOptions,
   type StoredResult,
 } from './storage/localStore.ts';
-
-/** A unique id per match (crypto.randomUUID needs a secure context; fall back otherwise). */
-function newMatchId(): string {
-  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
-  return Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
-    byte.toString(16).padStart(2, '0'),
-  ).join('');
-}
 
 /** Replaces the current history entry (e.g. a `/play` that has no match to show). */
 function Redirect({ to }: { to: Path }) {
@@ -36,9 +31,11 @@ function Redirect({ to }: { to: Path }) {
  * - When a match ends, its result is processed once per match id: `finishedAt` is set here,
  *   the result is stored, and kept for this session even if storage fails.
  */
-export function App() {
+export function App({ mockApi }: { mockApi: MockApiStatus }) {
   const route = useRoute();
   const [options, setOptions] = useState<GameOptions>(() => loadOptions());
+  /** Local, simulated identity used by the ranking and the match history. */
+  const [player] = useState(() => loadOrCreatePlayer());
   const [sessionResult, setSessionResult] = useState<SessionResult | null>(null);
   /** Match ids already processed in this session (guards Strict Mode and remounts). */
   const processedMatches = useRef(new Set<string>());
@@ -46,7 +43,7 @@ export function App() {
   const startMatch = useCallback(() => {
     // The match uses the options in effect now; later changes apply to the next match.
     navigate('/play', {
-      match: { matchId: newMatchId(), options, config: configFromOptions(options) },
+      match: { matchId: randomId(), options, config: configFromOptions(options) },
     });
   }, [options]);
 
@@ -94,6 +91,14 @@ export function App() {
         <ResultScreen sessionResult={sessionResult} onPlayAgain={startMatch} onMainMenu={goHome} />
       );
     default:
-      return <MainMenu onPlay={startMatch} onOptions={() => navigate('/options')} />;
+      return (
+        <MainMenu
+          options={options}
+          player={player}
+          mockApi={mockApi}
+          onPlay={startMatch}
+          onOptions={() => navigate('/options')}
+        />
+      );
   }
 }

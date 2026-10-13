@@ -195,6 +195,112 @@ kbd {
   margin: 0;
 }
 
+/* Ranking and match history */
+.menu-tabpanel .records-setup {
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.records-scroll {
+  overflow-x: auto;
+}
+
+.records-scroll[aria-busy='true'] {
+  opacity: 0.6;
+}
+
+.records-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+
+.records-table th,
+.records-table td {
+  padding: 0.3rem 0.4rem;
+  border-bottom: 1px solid rgb(244 234 213 / 15%);
+  vertical-align: top;
+}
+
+.records-table thead th {
+  color: #f7d9a2;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.records-table tbody th {
+  font-weight: 400;
+}
+
+.records-own {
+  background: rgb(247 217 162 / 15%);
+}
+
+.records-own th,
+.records-you {
+  color: #f7d9a2;
+  font-weight: 700;
+}
+
+.records-detail {
+  display: block;
+  color: #c9bfa8;
+  font-size: 0.75rem;
+}
+
+.records-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.records-status {
+  min-width: 7.5rem;
+  font-size: 0.85rem;
+}
+
+.records-button {
+  min-height: 2.25rem;
+  padding: 0 0.75rem;
+  border: 1px solid #b9742f;
+  border-radius: 0.4rem;
+  background: #2a3a4d;
+  color: #f4ead5;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.records-button:hover:not(:disabled) {
+  background: #3a4d63;
+}
+
+.records-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.records-message {
+  padding: 0.5rem 0;
+}
+
+.records-error {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  color: #ffb3a8;
+}
+
+.records-note {
+  margin: 0.5rem 0 0;
+  color: #f7d9a2;
+  font-size: 0.8rem;
+}
+
 /* Options */
 .options-form {
   display: grid;

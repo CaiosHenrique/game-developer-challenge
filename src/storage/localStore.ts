@@ -1,10 +1,12 @@
 import { z } from 'zod';
 import { sanitizeOptions, type GameOptions } from '../game/options.ts';
+import { randomId } from '../ids.ts';
 
 /** Versioned keys: a change of shape gets a new key instead of misreading old data. */
 export const STORAGE_KEYS = {
   options: 'pirate-battle.options.v1',
   lastResult: 'pirate-battle.lastResult.v1',
+  player: 'pirate-battle.player.v1',
 } as const;
 
 /** The result of a completed match, as stored on this device. */
@@ -81,4 +83,39 @@ export type SaveOutcome = 'saved' | 'duplicate' | 'failed';
 export function saveLastResult(result: StoredResult, storage = browserStorage()): SaveOutcome {
   if (loadLastResult(storage)?.matchId === result.matchId) return 'duplicate';
   return writeJson(storage, STORAGE_KEYS.lastResult, result) ? 'saved' : 'failed';
+}
+
+/**
+ * The player of this device. There is no authentication: this is a local, simulated
+ * identity, generated once and kept in storage.
+ */
+export type Player = { playerId: string; playerName: string };
+
+const playerSchema = z.object({
+  playerId: z.string().min(1).max(64),
+  playerName: z.string().min(1).max(40),
+});
+
+/** A readable name derived from the id, e.g. "Captain 4F2A". */
+export function playerNameFor(playerId: string): string {
+  const tag = playerId
+    .replace(/[^0-9a-z]/gi, '')
+    .slice(0, 4)
+    .toUpperCase();
+  return `Captain ${tag || 'X'}`;
+}
+
+/**
+ * The stored player, or a new one stored now. When storage is unavailable the new identity
+ * only lasts for this page load (`persisted: false`).
+ */
+export function loadOrCreatePlayer(
+  storage = browserStorage(),
+  newId: () => string = randomId,
+): Player & { persisted: boolean } {
+  const stored = playerSchema.safeParse(readJson(storage, STORAGE_KEYS.player));
+  if (stored.success) return { ...stored.data, persisted: true };
+  const playerId = newId();
+  const player = { playerId, playerName: playerNameFor(playerId) };
+  return { ...player, persisted: writeJson(storage, STORAGE_KEYS.player, player) };
 }

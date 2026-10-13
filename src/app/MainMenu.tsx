@@ -1,17 +1,29 @@
 import { useRef, useState, type KeyboardEvent } from 'react';
+import type { GameOptions } from '../game/options.ts';
+import type { MockApiStatus } from '../mocks/status.ts';
+import type { Player } from '../storage/localStore.ts';
+import { HistoryPanel, RankingPanel } from './RecordsPanels.tsx';
 import { MENU_ART } from './uiArt.ts';
 import { TOUCH_DEVICE_QUERY, useMediaQuery } from './useMediaQuery.ts';
 
 const TABS = [
-  { id: 'ranking', label: 'Ranking', placeholder: 'The online ranking will be shown here.' },
-  { id: 'history', label: 'Match History', placeholder: 'Your past battles will be listed here.' },
+  { id: 'ranking', label: 'Ranking' },
+  { id: 'history', label: 'Match History' },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
 
-/** Ranking / Match History tabs (WAI-ARIA tabs pattern: arrows, Home and End move focus). */
-function MenuTabs() {
+type RecordsProps = { options: GameOptions; player: Player; mockApi: MockApiStatus };
+
+/**
+ * Ranking / Match History tabs (WAI-ARIA tabs pattern: arrows, Home and End move focus).
+ * Only the selected panel is rendered, so showing a tab again refreshes it; each tab keeps
+ * its page while the menu is open.
+ */
+function MenuTabs({ options, player, mockApi }: RecordsProps) {
   const [selected, setSelected] = useState<TabId>('ranking');
+  const [rankingPage, setRankingPage] = useState(1);
+  const [historyPage, setHistoryPage] = useState(1);
   const tabRefs = useRef<Partial<Record<TabId, HTMLButtonElement | null>>>({});
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -69,14 +81,45 @@ function MenuTabs() {
           hidden={selected !== tab.id}
           className="menu-tabpanel"
         >
-          <p>{tab.placeholder}</p>
+          {selected !== tab.id ? null : mockApi.state === 'unavailable' ? (
+            <p className="records-message" role="alert">
+              Ranking and match history are offline: the mock API could not start in this browser.
+              The game still works.
+            </p>
+          ) : tab.id === 'ranking' ? (
+            <RankingPanel
+              options={options}
+              playerId={player.playerId}
+              page={rankingPage}
+              onPage={setRankingPage}
+            />
+          ) : (
+            <HistoryPanel
+              playerId={player.playerId}
+              playerName={player.playerName}
+              page={historyPage}
+              onPage={setHistoryPage}
+            />
+          )}
         </div>
       ))}
+      {mockApi.state === 'running' && mockApi.persistence === 'memory' && (
+        <p className="records-note">
+          Storage is unavailable in this browser: ranking and history data are kept in memory only
+          and reset when the page reloads.
+        </p>
+      )}
     </div>
   );
 }
 
-export function MainMenu({ onPlay, onOptions }: { onPlay: () => void; onOptions: () => void }) {
+export function MainMenu({
+  options,
+  player,
+  mockApi,
+  onPlay,
+  onOptions,
+}: RecordsProps & { onPlay: () => void; onOptions: () => void }) {
   const touchDevice = useMediaQuery(TOUCH_DEVICE_QUERY);
   return (
     <main className="menu-screen">
@@ -134,7 +177,7 @@ export function MainMenu({ onPlay, onOptions }: { onPlay: () => void; onOptions:
             </div>
           </dl>
         </section>
-        <MenuTabs />
+        <MenuTabs options={options} player={player} mockApi={mockApi} />
       </section>
     </main>
   );

@@ -5,6 +5,8 @@ import { DEFAULT_OPTIONS } from '../game/options.ts';
 import {
   loadLastResult,
   loadOptions,
+  loadOrCreatePlayer,
+  playerNameFor,
   saveLastResult,
   saveOptions,
   STORAGE_KEYS,
@@ -87,4 +89,33 @@ test('unavailable storage never throws and reports failed writes', () => {
   }
   assert.equal(saveLastResult(RESULT, null), 'failed');
   assert.deepEqual(loadOptions(null), DEFAULT_OPTIONS);
+});
+
+test('the player identity is created once and then reused', () => {
+  const { storage } = memoryStorage();
+  const first = loadOrCreatePlayer(storage, () => 'abc123-player');
+  assert.deepEqual(first, {
+    playerId: 'abc123-player',
+    playerName: 'Captain ABC1',
+    persisted: true,
+  });
+  const again = loadOrCreatePlayer(storage, () => 'another-id');
+  assert.deepEqual(again, first);
+});
+
+test('a corrupted player identity is replaced', () => {
+  const { storage, data } = memoryStorage();
+  data.set(STORAGE_KEYS.player, '{"playerId":""}');
+  assert.equal(loadOrCreatePlayer(storage, () => 'fresh-id').playerId, 'fresh-id');
+  data.set(STORAGE_KEYS.player, 'not json');
+  assert.equal(loadOrCreatePlayer(storage, () => 'other-id').playerId, 'other-id');
+});
+
+test('without storage the player identity lasts for this page load only', () => {
+  for (const storage of [null, memoryStorage({ failReads: true, failWrites: true }).storage]) {
+    const player = loadOrCreatePlayer(storage, () => 'session-id');
+    assert.equal(player.playerId, 'session-id');
+    assert.equal(player.persisted, false);
+  }
+  assert.equal(playerNameFor('---'), 'Captain X');
 });
