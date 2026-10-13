@@ -33,6 +33,8 @@ body,
 .game-host {
   position: absolute;
   inset: 0;
+  /* No double-tap zoom on the arena; pinch zoom stays available. */
+  touch-action: manipulation;
 }
 
 .game-host canvas {
@@ -48,10 +50,12 @@ body,
   text-align: center;
 }
 
+/* Top centre: the bottom corners belong to the touch controls, the top corners to the HUD. */
 .game-toolbar {
   position: absolute;
-  bottom: 0.75rem;
-  left: 0.75rem;
+  top: calc(0.75rem + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .visually-hidden {
@@ -70,20 +74,23 @@ body,
   /* Unitless multiplier of the art's logical pixels (lengths are calc(Npx * scale)). */
   --hud-scale: 0.85;
   position: absolute;
-  inset: 0;
+  /* Stay clear of notches and rounded corners. */
+  inset: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
   pointer-events: none;
   font-weight: 700;
   color: #fff8e6;
   text-shadow: 0 1px 2px rgb(0 0 0 / 70%);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 900px), (max-height: 520px) {
   .hud {
     --hud-scale: 0.7;
   }
 }
 
-@media (max-width: 600px) {
+/* Small phones and phones in landscape (e.g. 640 x 360). */
+@media (max-width: 600px), (max-height: 380px) {
   .hud {
     --hud-scale: 0.55;
   }
@@ -262,4 +269,95 @@ body,
   margin: 0 0 1.25rem;
   font-size: 0.95rem;
   opacity: 0.85;
+}
+
+/* Touch controls: movement bottom-left, guns bottom-right (art from the asset pack). */
+.touch-controls {
+  /* Round buttons: at least 44 px, the recommended touch target. */
+  --touch-size: clamp(44px, 11vmin, 72px);
+  position: absolute;
+  inset: auto env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  height: 0;
+  pointer-events: none;
+}
+
+.touch-pad {
+  position: absolute;
+  bottom: 0.75rem;
+  display: grid;
+  grid-template-columns: repeat(3, var(--touch-size));
+  grid-template-rows: repeat(2, var(--touch-size));
+  gap: 0.15rem 0.35rem;
+  pointer-events: auto;
+}
+
+.touch-pad-left {
+  left: 0.75rem;
+}
+
+.touch-pad-right {
+  right: 0.75rem;
+}
+
+/* Like the mockup: side buttons low, the middle one raised. */
+.touch-turnLeft,
+.touch-fireLeft {
+  grid-area: 2 / 1;
+}
+
+.touch-forward,
+.touch-fireFront {
+  grid-area: 1 / 2;
+}
+
+.touch-turnRight,
+.touch-fireRight {
+  grid-area: 2 / 3;
+}
+
+.touch-button {
+  position: relative;
+  width: var(--touch-size);
+  height: var(--touch-size);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: image-set(
+      url('../assets/png/default/ui/controls/button_round_normal.png') 1x,
+      url('../assets/png/retina/ui/controls/button_round_normal.png') 2x
+    )
+    center / 100% 100% no-repeat;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.touch-button[data-pressed] {
+  background-image: image-set(
+    url('../assets/png/default/ui/controls/button_round_pressed.png') 1x,
+    url('../assets/png/retina/ui/controls/button_round_pressed.png') 2x
+  );
+}
+
+.touch-button-icon {
+  position: absolute;
+  inset: 25%;
+  width: 50%;
+  height: 50%;
+  pointer-events: none;
+}
+
+/* Portrait on a touch device: matches are played in landscape. */
+.rotate-prompt {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-content: center;
+  padding: 2rem;
+  background: rgb(13 27 42); /* opaque: the pause dialog behind must not show through */
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 700;
 }

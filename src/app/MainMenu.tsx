@@ -1,5 +1,6 @@
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { MENU_ART } from './uiArt.ts';
+import { TOUCH_DEVICE_QUERY, useMediaQuery } from './useMediaQuery.ts';
 
 const TABS = [
   { id: 'ranking', label: 'Ranking', placeholder: 'The online ranking will be shown here.' },
@@ -76,6 +77,7 @@ function MenuTabs() {
 }
 
 export function MainMenu({ onPlay, onOptions }: { onPlay: () => void; onOptions: () => void }) {
+  const touchDevice = useMediaQuery(TOUCH_DEVICE_QUERY);
   return (
     <main className="menu-screen">
       <section className="menu-panel" aria-labelledby="menu-title">
@@ -93,6 +95,12 @@ export function MainMenu({ onPlay, onOptions }: { onPlay: () => void; onOptions:
         </div>
         <section className="menu-controls" aria-labelledby="controls-title">
           <h2 id="controls-title">Controls</h2>
+          {touchDevice && (
+            <p className="menu-touch-hint">
+              Touch: hold the buttons on the left to sail and turn, and the buttons on the right to
+              fire. Play in landscape.
+            </p>
+          )}
           <dl>
             <div>
               <dt>Sail forward</dt>

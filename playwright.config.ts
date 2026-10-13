@@ -25,7 +25,14 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium-desktop',
+      testIgnore: /\.mobile\.spec\.ts$/,
       use: { ...devices['Desktop Chrome'], channel, viewport: { width: 1280, height: 720 } },
+    },
+    {
+      // A phone held in landscape (the supported orientation): touch, coarse pointer.
+      name: 'chromium-mobile',
+      testMatch: /\.mobile\.spec\.ts$/,
+      use: { ...devices['Pixel 7 landscape'], channel },
     },
   ],
   // Tests run against a production build with test hooks (--mode e2e) and the real MSW worker.

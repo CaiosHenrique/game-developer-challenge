@@ -5,8 +5,14 @@ import type { GameConfig } from './config.ts';
 import { announcementFor } from './announcements.ts';
 import { HudStore, type HudState, type MatchResult, type PauseReason } from './hudStore.ts';
 import { KeyboardInput } from './input.ts';
+import { combineInputs, TouchInput, type TouchAction } from './touchInput.ts';
 import { GameRenderer } from './render/GameRenderer.ts';
-import { hullCircles, Simulation, type SimulationOptions } from './sim/simulation.ts';
+import {
+  hullCircles,
+  Simulation,
+  type InputState,
+  type SimulationOptions,
+} from './sim/simulation.ts';
 import { installTestHooks, type GameStateSnapshot } from './testHooks.ts';
 
 export type GameRuntimeOptions = {
@@ -33,6 +39,16 @@ export class GameRuntime {
   private readonly config: GameConfig;
   private readonly simulation: Simulation;
   private readonly keyboard = new KeyboardInput();
+  private readonly touch = new TouchInput();
+  /** Keyboard and touch commands combined for the current step. */
+  private readonly input: InputState = {
+    forward: false,
+    turnLeft: false,
+    turnRight: false,
+    fireFront: false,
+    fireLeft: false,
+    fireRight: false,
+  };
   private renderer: GameRenderer | null = null;
   private result: MatchResult | null = null;
   private pauseReason: PauseReason | null = null;
@@ -83,6 +99,7 @@ export class GameRuntime {
     if (this.disposed) return;
     this.pauseReason = reason;
     this.keyboard.detach();
+    this.touch.reset();
     this.hud.offer(this.hudState());
   }
 
@@ -95,6 +112,7 @@ export class GameRuntime {
     this.pauseReason = null;
     this.accumulator = 0;
     this.discardNextDelta = true;
+    this.touch.reset();
     this.keyboard.attach(window);
     this.hud.offer(this.hudState());
   }
@@ -155,6 +173,7 @@ export class GameRuntime {
 
     this.uninstallTestHooks?.();
     this.keyboard.detach();
+    this.touch.reset();
     window.removeEventListener('keydown', this.onPauseKey);
     window.removeEventListener('blur', this.onWindowBlur);
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
@@ -168,6 +187,26 @@ export class GameRuntime {
     GameRuntime.liveInstances -= 1;
   }
 
+  /** Touch buttons hold commands only during an active, unpaused match. */
+  touchDown(pointerId: number, action: TouchAction): void {
+    if (!this.initialized || this.disposed || this.pauseReason) return;
+    if (this.simulation.phase !== 'running') return;
+    this.touch.press(pointerId, action);
+  }
+
+  touchUp(pointerId: number): void {
+    this.touch.release(pointerId);
+  }
+
+  /** Releases every touch (e.g. when the touch controls are removed). */
+  releaseTouches(): void {
+    this.touch.reset();
+  }
+
+  private currentInput(): InputState {
+    return combineInputs(this.input, this.keyboard.state, this.touch.state);
+  }
+
   /** P or Escape toggles the pause while the match is running. */
   private readonly onPauseKey = (event: KeyboardEvent): void => {
     if (event.code !== 'KeyP' && event.code !== 'Escape') return;
@@ -178,7 +217,10 @@ export class GameRuntime {
     else this.pause('manual');
   };
 
-  private readonly onWindowBlur = (): void => this.pause('blur');
+  private readonly onWindowBlur = (): void => {
+    this.touch.reset();
+    this.pause('blur');
+  };
 
   private readonly onVisibilityChange = (): void => {
     if (document.visibilityState === 'hidden') this.pause('hidden');
@@ -199,7 +241,7 @@ export class GameRuntime {
       const stepSeconds = 1 / this.config.simulation.stepsPerSecond;
       this.accumulator += deltaSeconds;
       while (this.accumulator >= stepSeconds) {
-        this.simulation.step(this.keyboard.state);
+        this.simulation.step(this.currentInput());
         this.accumulator -= stepSeconds;
       }
     }
@@ -210,7 +252,7 @@ export class GameRuntime {
   private runSteps(count: number): void {
     // A paused match does not advance, whichever clock drives it.
     const steps = this.pauseReason ? 0 : count;
-    for (let index = 0; index < steps; index += 1) this.simulation.step(this.keyboard.state);
+    for (let index = 0; index < steps; index += 1) this.simulation.step(this.currentInput());
     this.present(0);
   }
 
@@ -220,6 +262,7 @@ export class GameRuntime {
     if (this.simulation.phase === 'ended' && !this.result) {
       // The match is over: stop capturing game keys so the end panel can use them.
       this.keyboard.detach();
+      this.touch.reset();
       this.result = {
         reason: this.simulation.endReason!,
         score: this.simulation.score,

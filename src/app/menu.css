@@ -19,6 +19,8 @@
   );
   border-image-slice: 40 32 40 32 fill;
   border-image-width: 40px 32px;
+  /* Behind the content only, so the text stays readable while the panel art loads. */
+  background: #22344a padding-box;
   color: #f4ead5;
   text-align: center;
 }
@@ -67,6 +69,7 @@
   font-size: 1.2rem;
   font-weight: 800;
   text-transform: uppercase;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -128,6 +131,10 @@
   margin: 0 0 0.25rem;
   font-size: 0.95rem;
   color: #f7d9a2;
+}
+
+.menu-touch-hint {
+  margin: 0 0 0.4rem;
 }
 
 .menu-controls dl {
@@ -266,4 +273,42 @@ kbd {
 .result-status dd {
   margin: 0;
   font-weight: 700;
+}
+
+/* Short screens (phones in landscape): a tighter menu. */
+@media (max-height: 520px) {
+  .menu-screen {
+    padding: 0.5rem;
+  }
+
+  .menu-panel {
+    padding: 0.25rem 0.75rem 0.5rem;
+  }
+
+  .menu-title img {
+    width: min(13rem, 100%);
+  }
+
+  .menu-tagline {
+    margin: 0 0 0.5rem;
+  }
+
+  .menu-button {
+    min-height: 2.8rem;
+    font-size: 1rem;
+  }
+
+  .menu-controls {
+    margin: 0.5rem 0;
+    font-size: 0.8rem;
+  }
+}
+
+/* Narrow screens (phones in portrait): both tab labels fit on one line. */
+@media (max-width: 480px) {
+  .menu-tab {
+    min-width: 0;
+    padding: 0 0.85rem;
+    font-size: 0.8rem;
+  }
 }

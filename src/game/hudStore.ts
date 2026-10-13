@@ -7,8 +7,11 @@ export type MatchResult = {
   timePlayedSeconds: number;
 };
 
-/** Why the match is paused: by the player, or automatically when the page lost focus. */
-export type PauseReason = 'manual' | 'blur' | 'hidden';
+/**
+ * Why the match is paused: by the player, or automatically when the page lost focus, was
+ * hidden, or a touch device was turned to portrait.
+ */
+export type PauseReason = 'manual' | 'blur' | 'hidden' | 'orientation';
 
 /** What the React HUD shows. Every field changes rarely, never once per frame. */
 export type HudState = {

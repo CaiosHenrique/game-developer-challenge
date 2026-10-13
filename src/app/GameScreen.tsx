@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import {
   getAssetProgress,
   loadGameAssets,
@@ -15,6 +15,10 @@ import {
 import { Dialog } from './Dialog.tsx';
 import { Hud } from './Hud.tsx';
 import type { MatchRequest } from './router.ts';
+import { TouchControls } from './TouchControls.tsx';
+import { PORTRAIT_TOUCH_QUERY, TOUCH_DEVICE_QUERY, useMediaQuery } from './useMediaQuery.ts';
+import { useTouchTap } from './useTouchTap.ts';
+import type { TouchAction } from '../game/touchInput.ts';
 
 /** Time the ended match stays on screen (explosion, wreck) before the Result screen. */
 export const RESULT_DELAY_MS = 1000;
@@ -95,6 +99,24 @@ function Match({
   const [failed, setFailed] = useState(false);
   const [store] = useState(() => new HudStore(GameRuntime.initialHud(match.config)));
   const hud = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  const touchDevice = useMediaQuery(TOUCH_DEVICE_QUERY);
+  const portraitTouch = useMediaQuery(PORTRAIT_TOUCH_QUERY);
+  /** Latest orientation, read when the runtime finishes starting. */
+  const portraitRef = useRef(portraitTouch);
+
+  // Matches are played in landscape on touch devices: turning to portrait pauses an active
+  // match (an existing pause keeps its reason). Turning back never resumes by itself.
+  useEffect(() => {
+    portraitRef.current = portraitTouch;
+    if (portraitTouch) runtimeRef.current?.pause('orientation');
+  }, [portraitTouch]);
+
+  const touchDown = useCallback(
+    (pointerId: number, action: TouchAction) => runtimeRef.current?.touchDown(pointerId, action),
+    [],
+  );
+  const touchUp = useCallback((pointerId: number) => runtimeRef.current?.touchUp(pointerId), []);
+  const releaseTouches = useCallback(() => runtimeRef.current?.releaseTouches(), []);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -106,10 +128,16 @@ function Match({
       manualClock: testManualClockFromQuery(window.location.search),
     });
     runtimeRef.current = runtime;
-    runtime.start().catch(() => {
-      runtime.destroy();
-      setFailed(true);
-    });
+    runtime
+      .start()
+      .then(() => {
+        // Already in portrait when the match became ready: start paused.
+        if (portraitRef.current) runtime.pause('orientation');
+      })
+      .catch(() => {
+        runtime.destroy();
+        setFailed(true);
+      });
     return () => {
       runtime.destroy();
       if (runtimeRef.current === runtime) runtimeRef.current = null;
@@ -147,6 +175,14 @@ function Match({
           </button>
         </div>
       )}
+      {touchDevice && hud.phase === 'running' && !hud.pauseReason && (
+        <TouchControls onPress={touchDown} onRelease={touchUp} onReleaseAll={releaseTouches} />
+      )}
+      {portraitTouch && (
+        <div className="rotate-prompt" role="alert">
+          <p>Rotate your device to landscape to play.</p>
+        </div>
+      )}
       {failed && (
         <div className="game-message" role="alert">
           <p>The game could not start. Reload the page to try again.</p>
@@ -160,6 +196,7 @@ const PAUSE_MESSAGES: Record<PauseReason, string> = {
   manual: 'The battle is on hold.',
   blur: 'Paused because the game window lost focus.',
   hidden: 'Paused because the page was hidden.',
+  orientation: 'Paused while the device was held in portrait.',
 };
 
 /** Pause dialog: only a player action (Resume, P or Esc) resumes the match. */
@@ -172,6 +209,8 @@ function PauseDialog({
   onResume: () => void;
   onMainMenu: () => void;
 }) {
+  const resumeTap = useTouchTap(onResume);
+  const mainMenuTap = useTouchTap(onMainMenu);
   return (
     <Dialog titleId="pause-title" descriptionId="pause-reason">
       <h2 id="pause-title">Paused</h2>
@@ -180,10 +219,10 @@ function PauseDialog({
       </p>
       <p className="pause-hint">Press P or Esc to resume.</p>
       <div className="end-actions">
-        <button type="button" onClick={onResume}>
+        <button type="button" {...resumeTap}>
           Resume
         </button>
-        <button type="button" onClick={onMainMenu}>
+        <button type="button" {...mainMenuTap}>
           Main Menu
         </button>
       </div>
