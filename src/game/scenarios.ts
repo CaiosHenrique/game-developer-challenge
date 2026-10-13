@@ -1,3 +1,4 @@
+import { DEFAULT_GAME_CONFIG } from './config.ts';
 import type { SimulationOptions } from './sim/simulation.ts';
 
 /**
@@ -37,7 +38,7 @@ const E2E_SCENARIOS: Record<string, SimulationOptions> = {
   /** A player with one ram's worth of health and a chaser about to ram it. */
   'last-stand': {
     spawner: false,
-    playerHp: 20,
+    playerHp: DEFAULT_GAME_CONFIG.enemies.chaser.impactDamage,
     playerStart: { x: 800, y: 450, heading: 0 },
     enemies: [{ kind: 'chaser', x: 800, y: 250, heading: Math.PI }],
   },

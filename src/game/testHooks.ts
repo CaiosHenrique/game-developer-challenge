@@ -1,4 +1,4 @@
-import type { HudState } from './hudStore.ts';
+import type { HudState, PauseReason } from './hudStore.ts';
 import type { RendererStats } from './render/GameRenderer.ts';
 import type { Aabb, Circle } from './sim/geometry.ts';
 import type { Enemy } from './sim/ai.ts';
@@ -19,6 +19,7 @@ export type GameStateSnapshot = {
   /** State currently published to the React HUD, and how many times it changed. */
   hud: HudState;
   hudEmissions: number;
+  pauseReason: PauseReason | null;
   /** Runtimes initialized and not yet destroyed (detects a match left running). */
   liveRuntimes: number;
   tick: number;

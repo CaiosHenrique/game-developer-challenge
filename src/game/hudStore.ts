@@ -7,6 +7,9 @@ export type MatchResult = {
   timePlayedSeconds: number;
 };
 
+/** Why the match is paused: by the player, or automatically when the page lost focus. */
+export type PauseReason = 'manual' | 'blur' | 'hidden';
+
 /** What the React HUD shows. Every field changes rarely, never once per frame. */
 export type HudState = {
   hp: number;
@@ -16,6 +19,9 @@ export type HudState = {
   remainingSeconds: number;
   phase: MatchPhase;
   result: MatchResult | null;
+  pauseReason: PauseReason | null;
+  /** Latest message for the screen-reader live region (changes only on discrete events). */
+  announcement: string;
 };
 
 function sameHud(a: HudState, b: HudState): boolean {
@@ -25,7 +31,9 @@ function sameHud(a: HudState, b: HudState): boolean {
     a.score === b.score &&
     a.remainingSeconds === b.remainingSeconds &&
     a.phase === b.phase &&
-    a.result === b.result
+    a.result === b.result &&
+    a.pauseReason === b.pauseReason &&
+    a.announcement === b.announcement
   );
 }
 

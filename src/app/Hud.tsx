@@ -6,7 +6,7 @@ import { HEALTH_BAR, HUD_ART } from './uiArt.ts';
  * Match HUD: health, score and time left. It re-renders only when one of these values
  * changes (the game publishes through a store that skips unchanged states).
  */
-export function Hud({ hud }: { hud: HudState }) {
+export function Hud({ hud, onPause }: { hud: HudState; onPause: () => void }) {
   const ratio = Math.min(1, Math.max(0, hud.hp / hud.maxHp));
   const fill =
     ratio > 2 / 3
@@ -53,6 +53,12 @@ export function Hud({ hud }: { hud: HudState }) {
           </dd>
         </div>
       </dl>
+      {hud.phase === 'running' && !hud.pauseReason && (
+        <button type="button" className="hud-pause" aria-label="Pause" onClick={onPause}>
+          <img {...HUD_ART.buttonRound} alt="" />
+          <img className="hud-pause-icon" {...HUD_ART.iconPause} alt="" />
+        </button>
+      )}
     </section>
   );
 }

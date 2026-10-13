@@ -117,14 +117,14 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
   player: {
     movement: { maxSpeed: 170, acceleration: 220, deceleration: 160, turnRate: 2.4 },
     hull: { radius: 24, offset: 30 },
-    maxHp: 100,
+    maxHp: 150,
   },
   enemies: {
     chaser: {
-      movement: { maxSpeed: 130, acceleration: 160, deceleration: 120, turnRate: 1.8 },
+      movement: { maxSpeed: 110, acceleration: 160, deceleration: 120, turnRate: 1.8 },
       hull: { radius: 24, offset: 30 },
       maxHp: 40,
-      impactDamage: 20,
+      impactDamage: 15,
     },
     shooter: {
       movement: { maxSpeed: 110, acceleration: 120, deceleration: 120, turnRate: 1.5 },
@@ -134,10 +134,10 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
       attackRange: 380,
       fireCone: (15 * Math.PI) / 180,
       weapon: {
-        damage: 15,
+        damage: 8,
         speed: 360,
         range: 420,
-        cooldown: 1.8,
+        cooldown: 3,
         projectileRadius: 5,
         count: 1,
         spacing: 0,
@@ -153,10 +153,10 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
     },
   },
   spawn: {
-    intervalSeconds: 4,
+    intervalSeconds: 5,
     firstDelaySeconds: 2,
     minDistanceFromPlayer: 450,
-    maxAlive: 8,
+    maxAlive: 6,
     weights: { chaser: 1, shooter: 1 },
     openingKinds: ['chaser', 'shooter'],
   },

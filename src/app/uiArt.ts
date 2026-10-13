@@ -1,4 +1,8 @@
 // HUD art from the original asset pack, at 1x and 2x (Vite bundles and fingerprints them).
+import buttonRound from '../../assets/png/default/ui/controls/button_round_normal.png';
+import iconPause from '../../assets/png/default/ui/controls/icon_pause.png';
+import buttonRound2x from '../../assets/png/retina/ui/controls/button_round_normal.png';
+import iconPause2x from '../../assets/png/retina/ui/controls/icon_pause.png';
 import counterPanel from '../../assets/png/default/ui/hud/counter_panel.png';
 import healthFillAmber from '../../assets/png/default/ui/hud/health_fill_amber.png';
 import healthFillGreen from '../../assets/png/default/ui/hud/health_fill_green.png';
@@ -21,6 +25,8 @@ export type Art = { src: string; srcSet: string };
 const art = (x1: string, x2: string): Art => ({ src: x1, srcSet: `${x1} 1x, ${x2} 2x` });
 
 export const HUD_ART = {
+  buttonRound: art(buttonRound, buttonRound2x),
+  iconPause: art(iconPause, iconPause2x),
   counterPanel: art(counterPanel, counterPanel2x),
   healthFrame: art(healthFrame, healthFrame2x),
   healthFillGreen: art(healthFillGreen, healthFillGreen2x),

@@ -18,7 +18,7 @@ const IDLE: InputState = {
 };
 const SPS = DEFAULT_GAME_CONFIG.simulation.stepsPerSecond;
 const FIRST_TICK = DEFAULT_GAME_CONFIG.spawn.firstDelaySeconds * SPS; // 120
-const INTERVAL_TICKS = DEFAULT_GAME_CONFIG.spawn.intervalSeconds * SPS; // 240
+const INTERVAL_TICKS = DEFAULT_GAME_CONFIG.spawn.intervalSeconds * SPS;
 
 /** A fixed, varied command pattern: sailing, turning both ways and firing every weapon. */
 function scriptedInput(tick: number): InputState {
@@ -105,7 +105,8 @@ test('the spawn configuration cannot place an enemy within immediate firing reac
 
 test('spawns follow the fixed cadence exactly', () => {
   const sim = new Simulation(ENDLESS, { seed: 7 });
-  while (sim.tick < 20 * SPS && sim.phase === 'running') sim.step(IDLE);
+  // Long enough for at least five scheduled spawns.
+  while (sim.tick <= FIRST_TICK + 5 * INTERVAL_TICKS && sim.phase === 'running') sim.step(IDLE);
   const spawns = sim.spawner!.spawns;
   assert.ok(spawns.length >= 5);
   spawns.forEach((record, index) => {
@@ -205,14 +206,24 @@ test('a pending spawn replaced by the next one keeps the cadence and the opening
   for (let seed = 1; seed <= 10; seed += 1) {
     const config = withSpawn({ minDistanceFromPlayer: 5000 });
     const sim = new Simulation(config, { seed });
-    while (sim.tick < 400 && sim.phase === 'running') sim.step(IDLE); // scheduled at 120 (pending) and 360 (replaces it)
+    // Scheduled at FIRST_TICK (stays pending), then at the next cadence tick, which replaces it.
+    const second = FIRST_TICK + INTERVAL_TICKS;
+    const release = second + 40;
+    while (sim.tick < release && sim.phase === 'running') sim.step(IDLE);
     assert.equal(sim.spawner!.getStats().replaced, 1);
 
     config.spawn.minDistanceFromPlayer = 450;
     while (sim.spawner!.spawns.length < 2 && sim.phase === 'running') sim.step(IDLE);
-    const [first, second] = sim.spawner!.spawns;
-    assert.deepEqual([first!.kind, first!.scheduledTick, first!.spawnTick], ['chaser', 360, 400]);
-    assert.deepEqual([second!.kind, second!.scheduledTick], ['shooter', 600], `seed ${seed}`);
+    const [firstSpawn, secondSpawn] = sim.spawner!.spawns;
+    assert.deepEqual(
+      [firstSpawn!.kind, firstSpawn!.scheduledTick, firstSpawn!.spawnTick],
+      ['chaser', second, release],
+    );
+    assert.deepEqual(
+      [secondSpawn!.kind, secondSpawn!.scheduledTick],
+      ['shooter', FIRST_TICK + 2 * INTERVAL_TICKS],
+      `seed ${seed}`,
+    );
   }
 });
 

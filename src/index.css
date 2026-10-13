@@ -147,12 +147,44 @@ body,
   top: 0.75rem;
 }
 
-.hud-score {
-  right: calc(176px * var(--hud-scale) + 1.25rem);
+.hud-time {
+  right: calc(64px * var(--hud-scale) + 1rem);
 }
 
-.hud-time {
+.hud-score {
+  right: calc(240px * var(--hud-scale) + 1.5rem);
+}
+
+.hud-pause {
+  position: absolute;
+  top: calc(0.75rem - 4px * var(--hud-scale));
   right: 0.75rem;
+  width: calc(64px * var(--hud-scale));
+  height: calc(64px * var(--hud-scale));
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.hud-pause img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hud-pause .hud-pause-icon {
+  inset: 25%;
+  width: 50%;
+  height: 50%;
+}
+
+.hud-pause:focus-visible {
+  outline: 3px solid #f4c56a;
+  outline-offset: 2px;
 }
 
 .hud-counter dd {
@@ -237,4 +269,11 @@ body,
 .game-toolbar button:focus-visible {
   outline: 3px solid #f4c56a;
   outline-offset: 3px;
+}
+
+/* Pause dialog */
+.pause-hint {
+  margin: 0 0 1.25rem;
+  font-size: 0.95rem;
+  opacity: 0.85;
 }

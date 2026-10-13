@@ -5,7 +5,7 @@ import { collectProblems, startGame } from './helpers.ts';
 
 const SPS = DEFAULT_GAME_CONFIG.simulation.stepsPerSecond;
 const FIRST_TICK = DEFAULT_GAME_CONFIG.spawn.firstDelaySeconds * SPS; // 120
-const INTERVAL_TICKS = DEFAULT_GAME_CONFIG.spawn.intervalSeconds * SPS; // 240
+const INTERVAL_TICKS = DEFAULT_GAME_CONFIG.spawn.intervalSeconds * SPS;
 const MIN_DISTANCE = DEFAULT_GAME_CONFIG.spawn.minDistanceFromPlayer;
 
 /**

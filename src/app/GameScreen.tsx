@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import {
   getAssetProgress,
   loadGameAssets,
@@ -7,7 +13,7 @@ import {
 } from '../game/assets.ts';
 import { DEFAULT_GAME_CONFIG } from '../game/config.ts';
 import { GameRuntime } from '../game/GameRuntime.ts';
-import { HudStore, type MatchResult } from '../game/hudStore.ts';
+import { HudStore, type MatchResult, type PauseReason } from '../game/hudStore.ts';
 import { testManualClockFromQuery, testOptionsFromQuery } from '../game/scenarios.ts';
 import { formatClock } from './format.ts';
 import { Hud } from './Hud.tsx';
@@ -84,6 +90,7 @@ function Match({
   onPlayAgain: () => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const runtimeRef = useRef<GameRuntime | null>(null);
   const [failed, setFailed] = useState(false);
   const [store] = useState(() => new HudStore(GameRuntime.initialHud(DEFAULT_GAME_CONFIG)));
   const hud = useSyncExternalStore(store.subscribe, store.getSnapshot);
@@ -97,19 +104,33 @@ function Match({
       simulation: testOptionsFromQuery(window.location.search),
       manualClock: testManualClockFromQuery(window.location.search),
     });
+    runtimeRef.current = runtime;
     runtime.start().catch(() => {
       runtime.destroy();
       setFailed(true);
     });
-    return () => runtime.destroy();
+    return () => {
+      runtime.destroy();
+      if (runtimeRef.current === runtime) runtimeRef.current = null;
+    };
   }, [textures, store]);
 
   return (
     <>
       <div ref={hostRef} className="game-host" data-testid="game-host" />
-      <Hud hud={hud} />
+      <Hud hud={hud} onPause={() => runtimeRef.current?.pause('manual')} />
+      {/* Discrete events only (score, time warnings, pause, low health, match end). */}
+      <div className="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
+        {hud.announcement}
+      </div>
       {hud.result ? (
         <EndPanel result={hud.result} onPlayAgain={onPlayAgain} onMainMenu={onExit} />
+      ) : hud.pauseReason ? (
+        <PauseDialog
+          reason={hud.pauseReason}
+          onResume={() => runtimeRef.current?.resume()}
+          onMainMenu={onExit}
+        />
       ) : (
         <div className="game-toolbar">
           <button type="button" onClick={onExit}>
@@ -159,6 +180,69 @@ function EndPanel({
         <div className="end-actions">
           <button ref={playAgainRef} type="button" onClick={onPlayAgain}>
             Play Again
+          </button>
+          <button type="button" onClick={onMainMenu}>
+            Main Menu
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+const PAUSE_MESSAGES: Record<PauseReason, string> = {
+  manual: 'The battle is on hold.',
+  blur: 'Paused because the game window lost focus.',
+  hidden: 'Paused because the page was hidden.',
+};
+
+/** Keeps Tab and Shift+Tab within the dialog's buttons. */
+function trapFocus(event: ReactKeyboardEvent<HTMLElement>): void {
+  if (event.key !== 'Tab') return;
+  const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('button')];
+  const first = buttons[0];
+  const last = buttons[buttons.length - 1];
+  if (!first || !last) return;
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+/** Pause dialog: only a player action (Resume, P or Esc) resumes the match. */
+function PauseDialog({
+  reason,
+  onResume,
+  onMainMenu,
+}: {
+  reason: PauseReason;
+  onResume: () => void;
+  onMainMenu: () => void;
+}) {
+  const resumeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => resumeRef.current?.focus(), []);
+
+  return (
+    <div className="end-backdrop">
+      <section
+        className="end-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pause-title"
+        aria-describedby="pause-reason"
+        onKeyDown={trapFocus}
+      >
+        <h2 id="pause-title">Paused</h2>
+        <p id="pause-reason" className="end-details">
+          {PAUSE_MESSAGES[reason]}
+        </p>
+        <p className="pause-hint">Press P or Esc to resume.</p>
+        <div className="end-actions">
+          <button ref={resumeRef} type="button" onClick={onResume}>
+            Resume
           </button>
           <button type="button" onClick={onMainMenu}>
             Main Menu

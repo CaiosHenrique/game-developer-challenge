@@ -4,6 +4,8 @@ import { collectProblems, getState, startGame, step } from './helpers.ts';
 
 const SPS = DEFAULT_GAME_CONFIG.simulation.stepsPerSecond;
 const DURATION_TICKS = DEFAULT_GAME_CONFIG.match.durationSeconds * SPS;
+const MAX_HP = DEFAULT_GAME_CONFIG.player.maxHp;
+const RAM_DAMAGE = DEFAULT_GAME_CONFIG.enemies.chaser.impactDamage;
 
 /** Steps one tick at a time (each step publishes to the HUD) until the match ends. */
 function stepUntilEnded(page: Page, limit: number) {
@@ -29,7 +31,7 @@ test.describe('match lifecycle', () => {
     await startGame(page, '?scenario=open-sea');
     const hud = page.getByRole('region', { name: 'Match status' });
     await expect(hud).toContainText('02:00');
-    await expect(hud).toContainText('100 / 100');
+    await expect(hud).toContainText(`${MAX_HP} / ${MAX_HP}`);
 
     let state = await step(page, DURATION_TICKS - 1);
     expect(state.phase).toBe('running');
@@ -76,7 +78,7 @@ test.describe('match lifecycle', () => {
     const panel = page.getByRole('dialog', { name: 'Your Ship Sank' });
     await expect(panel).toBeVisible();
     await expect(panel).toContainText('Ship sunk');
-    await expect(page.getByRole('region', { name: 'Match status' })).toContainText('0 / 100');
+    await expect(page.getByRole('region', { name: 'Match status' })).toContainText(`0 / ${MAX_HP}`);
   });
 
   test('the HUD is only updated when a shown value changes, not every frame', async ({ page }) => {
@@ -135,7 +137,7 @@ test.describe('match lifecycle', () => {
     expect(fresh.phase).toBe('running');
     expect(fresh.tick).toBe(0);
     expect(fresh.score).toBe(0);
-    expect(fresh.player.hp).toBe(20); // the scenario's starting health, restored
+    expect(fresh.player.hp).toBe(RAM_DAMAGE); // the scenario's starting health, restored
     expect(fresh.enemies).toHaveLength(1);
     expect(fresh.enemies[0]!.hp).toBe(fresh.enemies[0]!.maxHp);
     await expect(page.getByRole('region', { name: 'Match status' })).toContainText('02:00');

@@ -2,7 +2,8 @@ import { Application, type Ticker } from 'pixi.js';
 import { ARENA_BOUNDS, ISLAND_COLLIDERS, WORLD_HEIGHT, WORLD_WIDTH } from './arena.ts';
 import type { GameTextures } from './assets.ts';
 import type { GameConfig } from './config.ts';
-import { HudStore, type HudState, type MatchResult } from './hudStore.ts';
+import { announcementFor } from './announcements.ts';
+import { HudStore, type HudState, type MatchResult, type PauseReason } from './hudStore.ts';
 import { KeyboardInput } from './input.ts';
 import { GameRenderer } from './render/GameRenderer.ts';
 import { hullCircles, Simulation, type SimulationOptions } from './sim/simulation.ts';
@@ -34,6 +35,11 @@ export class GameRuntime {
   private readonly keyboard = new KeyboardInput();
   private renderer: GameRenderer | null = null;
   private result: MatchResult | null = null;
+  private pauseReason: PauseReason | null = null;
+  /** After a resume, the first frame's delta is dropped so no paused time is simulated. */
+  private discardNextDelta = false;
+  private announcement = '';
+  private lowHealthAnnounced = false;
   /** Real time not yet simulated, in seconds. */
   private accumulator = 0;
   private manualClock = false;
@@ -66,7 +72,31 @@ export class GameRuntime {
       remainingSeconds: config.match.durationSeconds,
       phase: 'running',
       result: null,
+      pauseReason: null,
+      announcement: '',
     };
+  }
+
+  /** Pauses the match (no-op when already paused or over). Game keys are released. */
+  pause(reason: PauseReason): void {
+    if (this.pauseReason || this.simulation.phase === 'ended' || !this.initialized) return;
+    if (this.disposed) return;
+    this.pauseReason = reason;
+    this.keyboard.detach();
+    this.hud.offer(this.hudState());
+  }
+
+  /**
+   * Resumes after a player action only. Nothing from the pause carries over: held keys must
+   * be pressed again, and no paused time is simulated.
+   */
+  resume(): void {
+    if (!this.pauseReason || this.disposed) return;
+    this.pauseReason = null;
+    this.accumulator = 0;
+    this.discardNextDelta = true;
+    this.keyboard.attach(window);
+    this.hud.offer(this.hudState());
   }
 
   async start(): Promise<void> {
@@ -101,6 +131,9 @@ export class GameRuntime {
     this.fitToHost();
 
     this.keyboard.attach(window);
+    window.addEventListener('keydown', this.onPauseKey);
+    window.addEventListener('blur', this.onWindowBlur);
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
     this.app.ticker.add(this.onTick);
     this.uninstallTestHooks = installTestHooks({
       getState: () => this.snapshot(),
@@ -122,6 +155,9 @@ export class GameRuntime {
 
     this.uninstallTestHooks?.();
     this.keyboard.detach();
+    window.removeEventListener('keydown', this.onPauseKey);
+    window.removeEventListener('blur', this.onWindowBlur);
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
     // Stops the ticker, removes the canvas and destroys the scene graph, including pooled
@@ -132,8 +168,33 @@ export class GameRuntime {
     GameRuntime.liveInstances -= 1;
   }
 
+  /** P or Escape toggles the pause while the match is running. */
+  private readonly onPauseKey = (event: KeyboardEvent): void => {
+    if (event.code !== 'KeyP' && event.code !== 'Escape') return;
+    if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (this.simulation.phase === 'ended') return;
+    event.preventDefault();
+    if (this.pauseReason) this.resume();
+    else this.pause('manual');
+  };
+
+  private readonly onWindowBlur = (): void => this.pause('blur');
+
+  private readonly onVisibilityChange = (): void => {
+    if (document.visibilityState === 'hidden') this.pause('hidden');
+  };
+
   private readonly onTick = (ticker: Ticker): void => {
-    const deltaSeconds = Math.min(ticker.deltaMS / 1000, this.config.simulation.maxFrameSeconds);
+    if (this.pauseReason) {
+      // Paused: no simulated time, and effects stand still.
+      this.present(0);
+      return;
+    }
+    let deltaSeconds = Math.min(ticker.deltaMS / 1000, this.config.simulation.maxFrameSeconds);
+    if (this.discardNextDelta) {
+      this.discardNextDelta = false;
+      deltaSeconds = 0;
+    }
     if (!this.manualClock) {
       const stepSeconds = 1 / this.config.simulation.stepsPerSecond;
       this.accumulator += deltaSeconds;
@@ -147,7 +208,9 @@ export class GameRuntime {
 
   /** Manual clock: runs an exact number of steps and refreshes the scene. */
   private runSteps(count: number): void {
-    for (let index = 0; index < count; index += 1) this.simulation.step(this.keyboard.state);
+    // A paused match does not advance, whichever clock drives it.
+    const steps = this.pauseReason ? 0 : count;
+    for (let index = 0; index < steps; index += 1) this.simulation.step(this.keyboard.state);
     this.present(0);
   }
 
@@ -167,16 +230,41 @@ export class GameRuntime {
   }
 
   private hudState(): HudState {
-    const { player, score, phase } = this.simulation;
+    const { player, score, phase, endReason } = this.simulation;
+    const remainingSeconds = Math.ceil(
+      this.simulation.remainingTicks / this.config.simulation.stepsPerSecond,
+    );
+    const previous = this.hud.getSnapshot();
+    const message = announcementFor(
+      {
+        ...previous,
+        endReason: previous.result?.reason ?? null,
+        paused: previous.pauseReason !== null,
+      },
+      {
+        hp: player.hp,
+        maxHp: player.maxHp,
+        score,
+        remainingSeconds,
+        phase,
+        endReason,
+        paused: this.pauseReason !== null,
+      },
+      this.lowHealthAnnounced,
+    );
+    if (message) {
+      this.announcement = message;
+      if (message === 'Health low.') this.lowHealthAnnounced = true;
+    }
     return {
       hp: player.hp,
       maxHp: player.maxHp,
       score,
-      remainingSeconds: Math.ceil(
-        this.simulation.remainingTicks / this.config.simulation.stepsPerSecond,
-      ),
+      remainingSeconds,
       phase,
       result: this.result,
+      pauseReason: this.pauseReason,
+      announcement: this.announcement,
     };
   }
 
@@ -194,6 +282,7 @@ export class GameRuntime {
       remainingTicks: this.simulation.remainingTicks,
       hud: { ...this.hud.getSnapshot() },
       hudEmissions: this.hud.emissions,
+      pauseReason: this.pauseReason,
       liveRuntimes: GameRuntime.liveInstances,
       tick: this.simulation.tick,
       elapsed: this.simulation.elapsed,
