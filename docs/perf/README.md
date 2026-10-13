@@ -74,7 +74,8 @@ never enter the frame statistics. Headed and headless figures are never mixed.
 (hardware: headless also used the GPU on this machine, not software rendering), viewport
 1280 × 720, device pixel ratio 1. The display refresh period measured on the idle menu was
 **6.1 ms (about 165 Hz)**, which caps the frame rate. Commit `7058470` plus uncommitted
-work (M6a, M6b).
+work (M6a, M6b). The application source measured is that of commit `041e795`, except for
+one comment in `src/App.tsx`.
 
 ### Startup (cold load: new context, no cache, no service worker)
 

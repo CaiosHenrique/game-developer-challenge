@@ -52,5 +52,18 @@ should be reviewed.
   every match.** The comment at the top of `App` (`src/App.tsx`) omitted that the end of every
   match also sends the whole queue (`submitAll` in `handleMatchComplete`); only the comment
   changed, not the code.
-- **Open (M7):** test and profiling reports are not versioned yet (only the performance JSON in
-  `docs/perf/`); the public deployment is not documented or checked yet; no CI workflow.
+- **Closed in M7: test report and public deployment.** The HTML report of the end-to-end run
+  on `041e795` is kept in [reports/e2e-041e795.html](reports/e2e-041e795.html), recorded in
+  [TESTING.md](TESTING.md#recorded-run); the performance results stay in `docs/perf/`. The
+  production deployment (https://game-developer-challenge-azure.vercel.app) is documented and
+  was checked on 13 October 2026, with the caveats listed in the
+  [README](../README.md#production): which deployment the domain points to was not checked
+  in the Vercel dashboard.
+- **Open (M7): no CI workflow.** The repository has none; the visual baselines would need
+  their own Linux versions first (see [TESTING.md](TESTING.md#no-continuous-integration)).
+- **Open: asset license and redistribution, to confirm with Jungle Gaming.** The challenge
+  repository states no license for its assets. The game art appears to derive from Kenney's
+  Pirate Pack (CC0 1.0), but the license of the repainted art distributed with the challenge,
+  and of the UI art, is not confirmed, and neither is permission to redistribute them in the
+  public deployment. Nothing here is resolved; see
+  [README](../README.md#assets-and-attribution).

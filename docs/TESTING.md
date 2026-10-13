@@ -90,6 +90,24 @@ it first, or the tests may run against an old build.
 
 `playwright-report/` and `test-results/` are not versioned.
 
+## Recorded run
+
+The last full run kept as evidence, recorded here as it happened (not repeated since):
+
+| Item             | Recorded                                                                                                    |
+| ---------------- | ----------------------------------------------------------------------------------------------------------- |
+| Date             | 13 October 2026, end-to-end suite started at 14:39 UTC                                                      |
+| Commit           | `041e795`, in a clean clone from GitHub                                                                     |
+| Environment      | Windows 11, Node 24.21.0, npm 11.19.0, Playwright 1.64.0, Microsoft Edge 155.0.4283.45                      |
+| Setup and checks | `npm ci`, `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm run build`: passed              |
+| Unit tests       | 108 of 108 passed                                                                                           |
+| End-to-end tests | 120 of 120 passed (103 desktop, 17 mobile), none flaky or skipped, 87.9 s with 6 workers                    |
+| HTML report      | [reports/e2e-041e795.html](reports/e2e-041e795.html), the report Playwright produced in that run, unchanged |
+
+Traces and screenshots of failures are configured (see above) but none exist for this run:
+no test failed. The other files a run leaves in `playwright-report/` and `test-results/` are
+not versioned.
+
 ## Test parameters
 
 The end-to-end tests drive the real game and the real mock API through these URL

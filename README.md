@@ -3,6 +3,9 @@
 A top-down naval shooter: sail between islands, sink enemy ships with your front gun and
 broadsides, and score as much as you can before the timer runs out or your ship sinks.
 
+**Play it:** https://game-developer-challenge-azure.vercel.app — the production deployment on
+Vercel, built from `main` (see [Deployment](#deployment-vercel)).
+
 Built with React 19, strict TypeScript, PixiJS 8, TanStack Query 5, Axios, MSW 2 and
 Playwright. The original challenge specification is in [docs/CHALLENGE.md](docs/CHALLENGE.md).
 
@@ -192,12 +195,34 @@ and includes visual regression (Windows + Edge baselines), accessibility scans (
 keyboard focus checks. What each suite covers and does not cover:
 [docs/TESTING.md](docs/TESTING.md). Measured performance: [docs/perf/README.md](docs/perf/README.md).
 
-## Assets
+## Assets and attribution
 
-The original challenge assets in `assets/` are never modified. `scripts/prepare-assets.ts`
-generates the runtime files in `public/game/` (not versioned): it converts the Starling XML ship
-atlas to a PixiJS spritesheet, defines named regions of the tile sheet (islands, water) and
-copies the UI atlas.
+**Source.** Everything in `assets/` was supplied with the challenge, in the Jungle Gaming
+repository [junglegaming/game-developer-challenge](https://github.com/junglegaming/game-developer-challenge)
+(commit `3158914`), and is kept unmodified. That repository states no license, author or
+credits for these files.
+
+**Processing.** `scripts/prepare-assets.ts` generates the runtime files in `public/game/` (not
+versioned). It converts the Starling XML ship atlas to a PixiJS spritesheet, defines named
+regions of the tile sheet (islands, water) and copies the UI atlas. Images are copied byte for
+byte: no pixel is changed. The menu and HUD art is imported from `assets/` as it is.
+
+**What is known about the art, and what is not:**
+
+| Files                                                       | Origin                                                                                                                                                                                                                                                                                                                                                                                      | License                                                                                                                                                                                                        |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ships, ship parts, effects, tiles, their sheets and vectors | Appear to derive from [Pirate Pack by Kenney](https://kenney.nl/assets/pirate-pack): same set of sprites and layout, a preview image of the same size and composition, and metadata in some tiles dated 10 February 2017, two days before the pack was posted on OpenGameArt. The challenge's files look repainted (a painted style, unlike the flat original); who made them is not known. | The original Pirate Pack is CC0 1.0 ([Kenney](https://kenney.nl/assets/pirate-pack), [OpenGameArt](https://opengameart.org/content/pirate-pack-190)). **The license of the repainted files is not confirmed.** |
+| UI (HUD, controls, menu, `ui_sheet*`) and backgrounds       | Supplied by the challenge; author not identified                                                                                                                                                                                                                                                                                                                                            | Not identified                                                                                                                                                                                                 |
+| Sounds (`assets/sounds/`)                                   | Supplied by the challenge; author not identified                                                                                                                                                                                                                                                                                                                                            | Not identified. The game does not use them.                                                                                                                                                                    |
+| Fonts                                                       | None shipped: the interface uses the system font stack                                                                                                                                                                                                                                                                                                                                      | —                                                                                                                                                                                                              |
+
+The CC0 license covers Kenney's original pack. It is not evidence about the repainted files or
+the UI art, so this project does not claim any license for them. They are used because the
+challenge provides them and asks for them to be used.
+
+**Open question:** whether the public deployment may redistribute these files is not stated
+anywhere in the challenge repository. Confirmation (and the license of the repainted art and
+the UI) should be requested from Jungle Gaming.
 
 ## Deployment (Vercel)
 
@@ -210,4 +235,34 @@ rewrite and cache headers. The rewrite excludes `/api/*` (so an API request neve
 2. Every push to the production branch deploys.
 3. After deploying, open the URL, reload it, and check that the ranking and history load.
 
-No public deployment is documented here yet.
+### Production
+
+| Platform | Production branch | Public URL                                        |
+| -------- | ----------------- | ------------------------------------------------- |
+| Vercel   | `main`            | https://game-developer-challenge-azure.vercel.app |
+
+This is the only public URL. The per-deployment URLs Vercel creates (`…-caio-team1.vercel.app`)
+are protected by Vercel's login and are not meant to be shared. Every push to `main` deploys
+again, so the production URL may serve a commit newer than the one verified below.
+
+**Last verified on 13 October 2026, commit `041e795`:**
+
+- **Same files as the commit:** the 69 files served by the production URL (`index.html`, the
+  mock service worker, everything under `/assets/` and `/game/`) were byte-identical to a
+  `npm run build` of `041e795` made from a clean clone. The application code is the same from
+  `119a03d` to `041e795` (those commits differ only in tests, documentation and a code
+  comment), so the files alone do not single out `041e795`.
+- **Deployment record:** GitHub lists Vercel's latest Production deployment for `041e795` as
+  successful. Which deployment the production domain points to was not checked in the Vercel
+  dashboard.
+- **Browser smoke test** on the production URL (Microsoft Edge, fresh isolated contexts; the
+  scripts are not part of this repository), all passed:
+  - the menu opens, the mock service worker registers and controls the page, `/api/health`
+    answers through it (`mocked: true`) and the ranking loads (page 1 of 4);
+  - `/options` and `/result` load and reload directly, also as the first page visited, and
+    `/play` without a match returns to the menu;
+  - a real 60 s match ends (ship sunk), the Result screen shows it saved on the device and
+    submitted, and it is still shown after a reload, as is its Match History entry;
+  - no console error or warning, page error or failed request;
+  - caching: `/` `max-age=0, must-revalidate`, `/mockServiceWorker.js` `no-cache`,
+    `/assets/*` immutable; `/api/*` without the worker answers 404, not the page.
