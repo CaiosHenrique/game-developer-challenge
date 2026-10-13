@@ -43,6 +43,34 @@ export async function advance(page: Page, ms: number): Promise<GameStateSnapshot
   }, ms);
 }
 
+/**
+ * Runs single steps until the player (or an enemy) loses health, and returns that state.
+ * Throws if no such hit happens within `limit` steps.
+ */
+export function stepUntilHit(
+  page: Page,
+  target: 'player' | 'enemy',
+  limit = 600,
+): Promise<GameStateSnapshot> {
+  return page.evaluate(
+    ([who, max]) => {
+      const api = window.__pirateTest!;
+      const startHp = api.getState().player.hp;
+      for (let i = 0; i < max; i += 1) {
+        api.step(1);
+        const state = api.getState();
+        const hit =
+          who === 'player'
+            ? state.player.hp < startHp
+            : state.enemies.some((enemy) => enemy.hp < enemy.maxHp);
+        if (hit) return state;
+      }
+      throw new Error(`no ${who} hit within ${max} steps`);
+    },
+    [target, limit] as const,
+  );
+}
+
 /** Waits for a match started from the menu or the Result screen (manual clock from the URL). */
 export async function waitForMatch(page: Page): Promise<GameStateSnapshot> {
   await expect(page.locator('[data-testid="game-host"] canvas')).toHaveCount(1);

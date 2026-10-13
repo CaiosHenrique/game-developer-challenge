@@ -6,10 +6,13 @@
  * - tiles: named regions of the 2x tile sheet (the sheet has no metadata; 64px logical grid)
  * - water: standalone 2x water tile, so it can be repeated by a TilingSprite
  * - ui:    the provided 2x UI atlas (already PixiJS-compatible), with a stable file name
+ * - sounds: the sound effects the game plays (SOUND_IDS), copied byte for byte; the ambient
+ *   loops and the interface sounds are not used and not copied
  */
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { SOUND_IDS } from '../src/game/audio/soundMap.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const src = join(root, 'assets');
@@ -142,7 +145,13 @@ writeSheet('ui.json', ui);
 copyFileSync(join(src, 'png', 'retina', 'tiles', 'tile_73.png'), join(out, 'water@2x.png'));
 copyFileSync(join(src, 'png', 'default', 'ships', 'ship_2.png'), join(out, 'favicon.png'));
 
+// A missing file fails here (copyFileSync throws), not silently at run time.
+mkdirSync(join(out, 'sounds'), { recursive: true });
+for (const id of SOUND_IDS) {
+  copyFileSync(join(src, 'sounds', `${id}.wav`), join(out, 'sounds', `${id}.wav`));
+}
+
 console.log(
   `prepare-assets: ships=${Object.keys(ships.frames).length} tiles=${Object.keys(tiles.frames).length} ` +
-    `ui=${Object.keys(ui.frames).length} frames -> public/game/`,
+    `ui=${Object.keys(ui.frames).length} frames, sounds=${SOUND_IDS.length} -> public/game/`,
 );

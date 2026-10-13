@@ -122,14 +122,17 @@ test.describe('pause', () => {
     await page.getByRole('button', { name: 'Pause' }).click();
     const resume = page.getByRole('button', { name: 'Resume' });
     const menu = pauseDialog(page).getByRole('button', { name: 'Main Menu' });
+    const mute = pauseDialog(page).getByRole('button', { name: 'Mute sound effects' });
     await expect(resume).toBeFocused();
 
     await page.keyboard.press('Tab');
     await expect(menu).toBeFocused();
     await page.keyboard.press('Tab');
+    await expect(mute).toBeFocused();
+    await page.keyboard.press('Tab');
     await expect(resume).toBeFocused(); // wraps around instead of leaving the dialog
     await page.keyboard.press('Shift+Tab');
-    await expect(menu).toBeFocused();
+    await expect(mute).toBeFocused();
 
     await page.keyboard.press('Escape');
     await expect(pauseDialog(page)).toHaveCount(0);

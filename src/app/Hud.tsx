@@ -38,7 +38,12 @@ export function Hud({ hud, onPause }: { hud: HudState; onPause: () => void }) {
           <dt className="visually-hidden">Health</dt>
           <dd>
             <img className="hud-heart" {...HUD_ART.iconHeart} alt="" />
-            <span className="hud-bar" aria-hidden="true">
+            {/* Each hit on the player's ship remounts the bar, restarting its short pulse. */}
+            <span
+              key={hud.playerHits}
+              className={hud.playerHits > 0 ? 'hud-bar hud-bar-hit' : 'hud-bar'}
+              aria-hidden="true"
+            >
               <img {...HUD_ART.healthFrame} alt="" />
               <img {...fill} alt="" style={{ clipPath: `inset(0 ${cropRight}% 0 0)` }} />
             </span>

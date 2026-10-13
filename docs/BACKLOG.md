@@ -67,3 +67,17 @@ should be reviewed.
   and of the UI art, is not confirmed, and neither is permission to redistribute them in the
   public deployment. Nothing here is resolved; see
   [README](../README.md#assets-and-attribution).
+
+## M5 — Audio and visual polish
+
+- **Done locally (M5-P1a): sound effects with a mute switch.** 19 of the challenge's WAV files
+  are played (no ambient loops). Their author and license are **not confirmed**, like the rest
+  of the asset pack.
+- **Use of the sounds confirmed by the project owner.** The owner confirmed directly with
+  Jungle Gaming that the challenge's audio files may be used. The confirmation was verbal: no
+  written license or statement is recorded, and the author and license of the WAV files remain
+  unidentified. Publishing (every push to `main` deploys to production) is the owner's
+  decision. The art and UI license question above is still open.
+- **Open (decision): the mute switch is in the pause dialog, not in the HUD.** A HUD button
+  would change the two arena baselines of the visual regression tests; moving it there means
+  regenerating them deliberately.

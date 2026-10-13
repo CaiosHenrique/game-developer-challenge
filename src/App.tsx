@@ -7,6 +7,7 @@ import { MainMenu } from './app/MainMenu.tsx';
 import { OptionsScreen } from './app/OptionsScreen.tsx';
 import { ResultScreen, type SessionResult } from './app/ResultScreen.tsx';
 import { navigate, useRoute, type MatchRequest, type Path } from './app/router.ts';
+import type { AudioEngine } from './game/audio/AudioEngine.ts';
 import type { MatchResult } from './game/hudStore.ts';
 import { randomId } from './ids.ts';
 import type { MockApiStatusStore } from './mocks/status.ts';
@@ -40,7 +41,7 @@ function Redirect({ to }: { to: Path }) {
  *   with every record still queued from earlier matches. Queued records are also sent again
  *   when the app opens, when the browser comes back online and on Retry.
  */
-export function App({ mockApi }: { mockApi: MockApiStatusStore }) {
+export function App({ mockApi, audio }: { mockApi: MockApiStatusStore; audio: AudioEngine }) {
   const route = useRoute();
   const mockApiStatus = useSyncExternalStore(mockApi.subscribe, mockApi.get);
   const queryClient = useQueryClient();
@@ -56,11 +57,13 @@ export function App({ mockApi }: { mockApi: MockApiStatusStore }) {
   const processedMatches = useRef(new Set<string>());
 
   const startMatch = useCallback(() => {
+    // Play and Play Again are user gestures: the only moments audio may start.
+    audio.unlock();
     // The match uses the options in effect now; later changes apply to the next match.
     navigate('/play', {
       match: { matchId: randomId(), options, config: configFromOptions(options) },
     });
-  }, [options]);
+  }, [options, audio]);
 
   // Sends what is still queued from earlier sessions, and again whenever the browser is
   // back online. (The submitter never sends the same match twice at once.) Another tab
@@ -134,6 +137,7 @@ export function App({ mockApi }: { mockApi: MockApiStatusStore }) {
           <GameScreen
             key={route.match.matchId}
             match={route.match}
+            audio={audio}
             onExit={goHome}
             onMatchComplete={handleMatchComplete}
             onShowResult={showResult}

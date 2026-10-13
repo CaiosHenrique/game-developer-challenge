@@ -25,10 +25,13 @@ export type HudState = {
   pauseReason: PauseReason | null;
   /** Latest message for the screen-reader live region (changes only on discrete events). */
   announcement: string;
+  /** Hits the player's ship has taken this match; the health bar pulses when it grows. */
+  playerHits: number;
 };
 
 function sameHud(a: HudState, b: HudState): boolean {
   return (
+    a.playerHits === b.playerHits &&
     a.hp === b.hp &&
     a.maxHp === b.maxHp &&
     a.score === b.score &&

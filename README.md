@@ -77,15 +77,16 @@ ended.
 
 ### Controls
 
-| Action           | Keyboard             | Touch (phone or tablet in landscape)       |
-| ---------------- | -------------------- | ------------------------------------------ |
-| Sail forward     | `W` or `↑`           | Bottom-left pad, raised middle button      |
-| Turn left, right | `A`, `D` or `←`, `→` | Bottom-left pad, lower left / right button |
-| Front gun        | `Space`              | Bottom-right pad, raised middle button     |
-| Left broadside   | `Q`                  | Bottom-right pad, lower left button        |
-| Right broadside  | `E`                  | Bottom-right pad, lower right button       |
-| Pause            | `P` or `Esc`         | Pause button (top right)                   |
-| Resume           | `P`, `Esc` or Resume | Resume                                     |
+| Action           | Keyboard                                                        | Touch (phone or tablet in landscape)       |
+| ---------------- | --------------------------------------------------------------- | ------------------------------------------ |
+| Sail forward     | `W` or `↑`                                                      | Bottom-left pad, raised middle button      |
+| Turn left, right | `A`, `D` or `←`, `→`                                            | Bottom-left pad, lower left / right button |
+| Front gun        | `Space`                                                         | Bottom-right pad, raised middle button     |
+| Left broadside   | `Q`                                                             | Bottom-right pad, lower left button        |
+| Right broadside  | `E`                                                             | Bottom-right pad, lower right button       |
+| Pause            | `P` or `Esc`                                                    | Pause button (top right)                   |
+| Resume           | `P`, `Esc` or Resume                                            | Resume                                     |
+| Mute sounds      | In the pause dialog: "Mute sound effects" (`Tab`, then `Enter`) | Pause, then tap "Mute sound effects"       |
 
 The pause button at the top right also works with the mouse; the touch buttons only appear on
 devices whose main pointer is touch.
@@ -97,6 +98,15 @@ forward; releasing forward lets it slow down.
 The match also pauses by itself when the window loses focus, the page is hidden, or a touch
 device is turned to portrait. It only resumes when you choose to (Resume, `P` or `Esc`).
 Leaving the match (Main Menu, Back, reload) ends it without recording anything.
+
+### Sound effects
+
+Shots, broadsides, hits on ships, rams, sunk ships, splashes, points, low health, the 30 s and
+10 s warnings, pause and resume, and the start and end of a match have sound effects. Sound is
+on by default and starts only after you press Play (browsers allow audio only after a user
+action). The **Mute sound effects** switch in the pause dialog silences them at once and is
+saved on this device. If the browser has no Web Audio or a sound file fails to load, the game
+plays silently. There are no ambient loops.
 
 ### Gameplay configuration
 
@@ -213,7 +223,7 @@ byte: no pixel is changed. The menu and HUD art is imported from `assets/` as it
 | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Ships, ship parts, effects, tiles, their sheets and vectors | Appear to derive from [Pirate Pack by Kenney](https://kenney.nl/assets/pirate-pack): same set of sprites and layout, a preview image of the same size and composition, and metadata in some tiles dated 10 February 2017, two days before the pack was posted on OpenGameArt. The challenge's files look repainted (a painted style, unlike the flat original); who made them is not known. | The original Pirate Pack is CC0 1.0 ([Kenney](https://kenney.nl/assets/pirate-pack), [OpenGameArt](https://opengameart.org/content/pirate-pack-190)). **The license of the repainted files is not confirmed.** |
 | UI (HUD, controls, menu, `ui_sheet*`) and backgrounds       | Supplied by the challenge; author not identified                                                                                                                                                                                                                                                                                                                                            | Not identified                                                                                                                                                                                                 |
-| Sounds (`assets/sounds/`)                                   | Supplied by the challenge; author not identified                                                                                                                                                                                                                                                                                                                                            | Not identified. The game does not use them.                                                                                                                                                                    |
+| Sounds (`assets/sounds/`)                                   | Supplied by the challenge; author not identified                                                                                                                                                                                                                                                                                                                                            | Not identified. The game plays 19 of the 27 files (copied unchanged to `public/game/sounds/`); the two ambient loops, `ship_sinking` and the `ui_*` sounds are not used.                                       |
 | Fonts                                                       | None shipped: the interface uses the system font stack                                                                                                                                                                                                                                                                                                                                      | —                                                                                                                                                                                                              |
 
 The CC0 license covers Kenney's original pack. It is not evidence about the repainted files or
@@ -223,6 +233,11 @@ challenge provides them and asks for them to be used.
 **Open question:** whether the public deployment may redistribute these files is not stated
 anywhere in the challenge repository. Confirmation (and the license of the repainted art and
 the UI) should be requested from Jungle Gaming.
+
+**Sounds:** the project owner confirmed directly with Jungle Gaming that the audio files
+supplied with the challenge may be used. That confirmation was verbal: no written license or
+statement is in this repository, and the author and license of the WAV files are still not
+identified. It covers the sounds only, not the art or the UI above.
 
 ## Deployment (Vercel)
 

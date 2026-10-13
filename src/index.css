@@ -134,6 +134,28 @@ body,
   height: 100%;
 }
 
+/* A hit on the player's ship: a short pulse of the bar's size, never its value or colours. */
+.hud-bar-hit {
+  transform-origin: left center;
+  animation: hud-hit-pulse 300ms ease-out;
+}
+
+@keyframes hud-hit-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-bar-hit {
+    animation: none;
+  }
+}
+
 .hud-bar-label {
   position: absolute;
   left: calc(48px * var(--hud-scale) + 0.25rem);
@@ -276,6 +298,30 @@ body,
   margin: 0 0 1.25rem;
   font-size: 0.95rem;
   opacity: 0.85;
+}
+
+/* Mute switch of the sound effects: a check box drawn in the button, shown by aria-pressed. */
+.sound-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.sound-toggle-box {
+  display: inline-grid;
+  place-items: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 2px solid currentColor;
+  border-radius: 0.2rem;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.sound-toggle[aria-pressed='true'] {
+  background: #f4c56a;
+  color: #1d2b3c;
 }
 
 /* Touch controls: movement bottom-left, guns bottom-right (art from the asset pack). */

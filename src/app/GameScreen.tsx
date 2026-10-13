@@ -5,6 +5,7 @@ import {
   subscribeAssetProgress,
   type GameTextures,
 } from '../game/assets.ts';
+import type { AudioEngine } from '../game/audio/AudioEngine.ts';
 import { GameRuntime } from '../game/GameRuntime.ts';
 import { HudStore, type MatchResult, type PauseReason } from '../game/hudStore.ts';
 import {
@@ -16,7 +17,12 @@ import { Dialog } from './Dialog.tsx';
 import { Hud } from './Hud.tsx';
 import type { MatchRequest } from './router.ts';
 import { TouchControls } from './TouchControls.tsx';
-import { PORTRAIT_TOUCH_QUERY, TOUCH_DEVICE_QUERY, useMediaQuery } from './useMediaQuery.ts';
+import {
+  PORTRAIT_TOUCH_QUERY,
+  REDUCED_MOTION_QUERY,
+  TOUCH_DEVICE_QUERY,
+  useMediaQuery,
+} from './useMediaQuery.ts';
 import { useTouchTap } from './useTouchTap.ts';
 import type { TouchAction } from '../game/touchInput.ts';
 
@@ -35,7 +41,11 @@ type MatchCallbacks = {
 };
 
 /** One requested match: asset loading, then the game. Mounted once per match id. */
-export function GameScreen({ match, ...callbacks }: { match: MatchRequest } & MatchCallbacks) {
+export function GameScreen({
+  match,
+  audio,
+  ...callbacks
+}: { match: MatchRequest; audio: AudioEngine } & MatchCallbacks) {
   const [loadState, setLoadState] = useState<LoadState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const progress = useSyncExternalStore(subscribeAssetProgress, getAssetProgress);
@@ -59,7 +69,7 @@ export function GameScreen({ match, ...callbacks }: { match: MatchRequest } & Ma
   return (
     <main className="game-screen">
       {loadState.status === 'ready' ? (
-        <Match textures={loadState.textures} match={match} {...callbacks} />
+        <Match textures={loadState.textures} match={match} audio={audio} {...callbacks} />
       ) : (
         <div className="game-toolbar">
           <button type="button" onClick={callbacks.onExit}>
@@ -90,10 +100,11 @@ export function GameScreen({ match, ...callbacks }: { match: MatchRequest } & Ma
 function Match({
   textures,
   match,
+  audio,
   onExit,
   onMatchComplete,
   onShowResult,
-}: { textures: GameTextures; match: MatchRequest } & MatchCallbacks) {
+}: { textures: GameTextures; match: MatchRequest; audio: AudioEngine } & MatchCallbacks) {
   const hostRef = useRef<HTMLDivElement>(null);
   const runtimeRef = useRef<GameRuntime | null>(null);
   const [failed, setFailed] = useState(false);
@@ -126,6 +137,8 @@ function Match({
       debugColliders,
       simulation: testOptionsFromQuery(window.location.search),
       manualClock: testManualClockFromQuery(window.location.search),
+      reducedMotion: window.matchMedia(REDUCED_MOTION_QUERY).matches,
+      audio,
     });
     runtimeRef.current = runtime;
     runtime
@@ -142,7 +155,7 @@ function Match({
       runtime.destroy();
       if (runtimeRef.current === runtime) runtimeRef.current = null;
     };
-  }, [textures, store, match.config]);
+  }, [textures, store, match.config, audio]);
 
   // The match ended: hand the result over once, then show it after a short moment. The
   // timer is cancelled if the match is left (or unmounted) before it fires.
@@ -165,6 +178,7 @@ function Match({
       {hud.result ? null : hud.pauseReason ? (
         <PauseDialog
           reason={hud.pauseReason}
+          audio={audio}
           onResume={() => runtimeRef.current?.resume()}
           onMainMenu={onExit}
         />
@@ -199,18 +213,25 @@ const PAUSE_MESSAGES: Record<PauseReason, string> = {
   orientation: 'Paused while the device was held in portrait.',
 };
 
-/** Pause dialog: only a player action (Resume, P or Esc) resumes the match. */
+/**
+ * Pause dialog: only a player action (Resume, P or Esc) resumes the match. It also holds the
+ * mute switch of the sound effects (saved on the device, effective at once).
+ */
 function PauseDialog({
   reason,
+  audio,
   onResume,
   onMainMenu,
 }: {
   reason: PauseReason;
+  audio: AudioEngine;
   onResume: () => void;
   onMainMenu: () => void;
 }) {
   const resumeTap = useTouchTap(onResume);
   const mainMenuTap = useTouchTap(onMainMenu);
+  const muted = useSyncExternalStore(audio.subscribe, audio.isMuted);
+  const muteTap = useTouchTap(() => audio.setMuted(!audio.isMuted()));
   return (
     <Dialog titleId="pause-title" descriptionId="pause-reason">
       <h2 id="pause-title">Paused</h2>
@@ -224,6 +245,12 @@ function PauseDialog({
         </button>
         <button type="button" {...mainMenuTap}>
           Main Menu
+        </button>
+        <button type="button" className="sound-toggle" aria-pressed={muted} {...muteTap}>
+          <span className="sound-toggle-box" aria-hidden="true">
+            {muted ? '✓' : ''}
+          </span>
+          Mute sound effects
         </button>
       </div>
     </Dialog>

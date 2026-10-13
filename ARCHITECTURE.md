@@ -84,7 +84,7 @@ the frames.
   1600 × 900 world: the stage is scaled uniformly and centred. Game rules never depend on the
   screen size. The resolution is the device pixel ratio, capped at 2.
 - **React never sees per-frame state.** The runtime offers a `HudState` (health, score, whole
-  seconds left, phase, result, pause reason, announcement) every frame to a `HudStore`; the store
+  seconds left, phase, result, pause reason, announcement, hits taken) every frame to a `HudStore`; the store
   notifies React (`useSyncExternalStore`) only when a value changed. The test hook counts these
   notifications: in `e2e/match.spec.ts`, 600 steps (10 simulated seconds, nothing but the clock
   changing) notify React exactly 10 times.
@@ -127,6 +127,15 @@ same over 26 matches in one page.
 - Effects driven by events, in render time: muzzle flashes, hits on ships and islands, a ball
   sinking where it lands, a three-frame explosion and a sinking wreck for destroyed ships, the
   player's explosion on death.
+- A hit on the player's ship tints its hull for 0.3 s, counted in simulation ticks (so a pause
+  holds it and the manual clock drives it in tests); an ended match shows no tint. Enemies are
+  never tinted. The HUD's health bar pulses once per hit (`hits taken` in the `HudState`), a
+  size-only CSS animation that `prefers-reduced-motion` turns off.
+- Every hit on a ship (player or enemy, a ball or a ram) throws three wood splinters
+  (`wood_1..4`) from the impact point: evenly spread directions turned by a fixed angle on each
+  hit, no randomness, moving, turning and fading for 30 simulation ticks. Their sprites come
+  from the effect pool. Balls stopped by an island or expiring throw none; an ended match
+  clears them; with `prefers-reduced-motion` (read when the match starts) there are none.
 - There is no interpolation between simulation steps: each frame draws the state of the last
   step (the simulation runs at 60 steps per second, whatever the display rate).
 - `?debug=colliders` (in any build) draws the island boxes, hull circles and projectiles.
@@ -277,6 +286,34 @@ is ready. The shooter's gun is a front gun: 8 damage, speed 360, range 420, ever
   playable without sight; no screen reader was tested (see
   [docs/TESTING.md](docs/TESTING.md#accessibility)).
 
+## Sound effects
+
+- **Rules** (`src/game/audio/soundMap.ts`, pure): `soundsFor` turns the events of the steps just
+  run, and the HUD state before and after them, into sounds. Front shots (the player's or a
+  shooter's) rotate three cannon sounds; a player shot with more balls than the front gun is a
+  broadside; hits on ships, sunk ships and splashes at the end of a ball's range alternate
+  their variants; a ram is one collision sound (no hit, no explosion); the end of the match
+  (complete or game over) replaces every other sound and nothing follows it. From the HUD:
+  pause, resume, low health (once), 30 s and 10 s warnings and each point. Each sound plays at
+  most once per update. No simulation event was added for sound.
+- **Engine** (`src/game/audio/AudioEngine.ts`, Web Audio, no library): one instance for the app,
+  created in `main.tsx`. Play and Play Again call `unlock()` from their click: the first one
+  creates the audio context and loads the 19 sounds (`public/game/sounds/`) in the background;
+  a sound not loaded yet is skipped, never played late. At most 8 sounds at once (2 of the same
+  one), master volume 0.6.
+- **Lifecycle:** each match's runtime sends its sounds to the engine. Pausing stops what plays
+  and blocks every sound but the pause cue; resuming lets them through. Muting stops what plays
+  at once and saves the choice (`pirate-battle.audio.v1`); nothing muted is replayed. Destroying
+  a runtime (end, exit, Play Again) stops its sounds and releases a pause it held.
+- **Failures** (no Web Audio, a file missing or not decodable, a refused resume, blocked
+  storage) leave the game silent but playable, with no console message from the app. The
+  browser itself still reports a failed network request.
+- **Mute switch:** in the pause dialog (a toggle button with `aria-pressed`), reached with the
+  pause button, `P` or `Esc`. Placed there rather than in the HUD so the arena screenshots of
+  the visual regression tests stay as they are.
+- The e2e build exposes `window.__pirateAudio` (engine state and the record of requested sounds
+  with their outcome); other builds do not contain it.
+
 ## Local persistence
 
 All keys are versioned (`.v1`): a change of shape gets a new key instead of misreading old data.
@@ -292,6 +329,7 @@ working and says what is not kept.
 | `pirate-battle.pendingMatches.v1` | End of a match; removed on confirmation | Array of match records (the API contract) waiting for the online ranking, in order.                                                                                          |
 | `pirate-battle.mockdb.v1`         | Mock API                                | `{ records: [...] }`: the mock server's data (fixtures plus registered matches).                                                                                             |
 | `pirate-battle.mockScenario.v1`   | Network scenario panel or `?api=`       | The selected network scenario id.                                                                                                                                            |
+| `pirate-battle.audio.v1`          | Mute switch (pause dialog)              | `{ muted }`. Missing, unreadable or invalid means sound on.                                                                                                                  |
 
 When storage cannot be written: options apply for the session only (the Options screen says
 so); the result is kept for the session and the Result screen says it was not saved; the
@@ -439,7 +477,8 @@ survive the whole match and score. This was tuned against the bot only, not with
   as their exact shore outline.
 - Enemies have no path finding: they steer around islands with two rays and a fixed-side escape
   when stuck, which can still look clumsy around island corners.
-- No audio; no interpolation between simulation steps (60 steps per second on any display).
+- No ambient sound loops; the first match's start sound is skipped when its file has not
+  loaded yet. No interpolation between simulation steps (60 steps per second on any display).
 - Touch play is landscape only; portrait pauses the match.
 - The canvas is not accessible to screen readers (see above).
 - Ranking and history are local to one browser profile (mock API, simulated identity); results

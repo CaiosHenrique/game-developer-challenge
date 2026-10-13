@@ -1,6 +1,8 @@
 import { Application, type Ticker } from 'pixi.js';
 import { ARENA_BOUNDS, ISLAND_COLLIDERS, WORLD_HEIGHT, WORLD_WIDTH } from './arena.ts';
 import type { GameTextures } from './assets.ts';
+import type { SoundOutput } from './audio/AudioEngine.ts';
+import { INITIAL_SOUND_CURSOR, soundsFor, type SoundHud } from './audio/soundMap.ts';
 import type { GameConfig } from './config.ts';
 import { announcementFor } from './announcements.ts';
 import { HudStore, type HudState, type MatchResult, type PauseReason } from './hudStore.ts';
@@ -11,8 +13,10 @@ import {
   hullCircles,
   Simulation,
   type InputState,
+  type SimEvent,
   type SimulationOptions,
 } from './sim/simulation.ts';
+import { PLAYER_ID } from './sim/weapons.ts';
 import { installTestHooks, type GameStateSnapshot } from './testHooks.ts';
 
 export type GameRuntimeOptions = {
@@ -22,7 +26,22 @@ export type GameRuntimeOptions = {
   simulation?: SimulationOptions;
   /** Start on the manual clock: the simulation only advances through test hooks. */
   manualClock?: boolean;
+  /** The player prefers reduced motion (read when the match starts): no flying splinters. */
+  reducedMotion?: boolean;
+  /** Where the match's sound effects go (the app's audio engine); none: silent. */
+  audio?: SoundOutput;
 };
+
+function soundHud(state: HudState): SoundHud {
+  return {
+    hp: state.hp,
+    maxHp: state.maxHp,
+    score: state.score,
+    remainingSeconds: state.remainingSeconds,
+    phase: state.phase,
+    paused: state.pauseReason !== null,
+  };
+}
 
 /**
  * Owns the PixiJS application of one match, the input and the fixed-step clock that drives
@@ -56,6 +75,10 @@ export class GameRuntime {
   private discardNextDelta = false;
   private announcement = '';
   private lowHealthAnnounced = false;
+  /** Hits the player's ship has taken (published to the HUD, which pulses on each one). */
+  private playerHits = 0;
+  /** Which variant of each sound family comes next, and whether low health was heard. */
+  private soundCursor = INITIAL_SOUND_CURSOR;
   /** Real time not yet simulated, in seconds. */
   private accumulator = 0;
   private manualClock = false;
@@ -90,6 +113,7 @@ export class GameRuntime {
       result: null,
       pauseReason: null,
       announcement: '',
+      playerHits: 0,
     };
   }
 
@@ -100,7 +124,9 @@ export class GameRuntime {
     this.pauseReason = reason;
     this.keyboard.detach();
     this.touch.reset();
-    this.hud.offer(this.hudState());
+    // Sounds stop now; the pause cue is the only one heard until the match resumes.
+    this.options.audio?.setPaused(true);
+    this.publish([]);
   }
 
   /**
@@ -114,7 +140,8 @@ export class GameRuntime {
     this.discardNextDelta = true;
     this.touch.reset();
     this.keyboard.attach(window);
-    this.hud.offer(this.hudState());
+    this.options.audio?.setPaused(false);
+    this.publish([]);
   }
 
   async start(): Promise<void> {
@@ -139,6 +166,7 @@ export class GameRuntime {
       this.textures,
       this.config,
       this.options.debugColliders ?? false,
+      this.options.reducedMotion ?? false,
     );
     this.renderer.sync(this.simulation, [], 0);
     this.app.stage.addChild(this.renderer.root);
@@ -163,6 +191,7 @@ export class GameRuntime {
       advance: (ms) =>
         this.runSteps(Math.round((ms / 1000) * this.config.simulation.stepsPerSecond)),
     });
+    this.playSounds([], null, this.hud.getSnapshot()); // the match starts
   }
 
   destroy(): void {
@@ -172,6 +201,9 @@ export class GameRuntime {
     if (!this.initialized) return;
 
     this.uninstallTestHooks?.();
+    // The app's audio outlives the match: its sounds stop, and a pause it held is released.
+    this.options.audio?.stopAll();
+    this.options.audio?.setPaused(false);
     this.keyboard.detach();
     this.touch.reset();
     window.removeEventListener('keydown', this.onPauseKey);
@@ -258,7 +290,11 @@ export class GameRuntime {
 
   /** Draws the scene and publishes the HUD state after the simulation advanced. */
   private present(deltaSeconds: number): void {
-    this.renderer?.sync(this.simulation, this.simulation.drainEvents(), deltaSeconds);
+    const events = this.simulation.drainEvents();
+    for (const event of events) {
+      if (event.type === 'shipHit' && event.targetId === PLAYER_ID) this.playerHits += 1;
+    }
+    this.renderer?.sync(this.simulation, events, deltaSeconds);
     if (this.simulation.phase === 'ended' && !this.result) {
       // The match is over: stop capturing game keys so the end panel can use them.
       this.keyboard.detach();
@@ -269,7 +305,28 @@ export class GameRuntime {
         timePlayedSeconds: this.simulation.endTick! / this.config.simulation.stepsPerSecond,
       };
     }
-    this.hud.offer(this.hudState());
+    this.publish(events);
+  }
+
+  /** Publishes the HUD state, with the sounds of what changed since the last one. */
+  private publish(events: readonly SimEvent[]): void {
+    const previous = this.hud.getSnapshot();
+    const next = this.hudState();
+    this.playSounds(events, previous, next);
+    this.hud.offer(next);
+  }
+
+  private playSounds(events: readonly SimEvent[], previous: HudState | null, next: HudState) {
+    if (!this.options.audio) return;
+    const { sounds, cursor } = soundsFor(
+      events,
+      previous && soundHud(previous),
+      soundHud(next),
+      this.soundCursor,
+      this.config.weapons.front.count,
+    );
+    this.soundCursor = cursor;
+    if (sounds.length > 0) this.options.audio.play(sounds);
   }
 
   private hudState(): HudState {
@@ -308,6 +365,7 @@ export class GameRuntime {
       result: this.result,
       pauseReason: this.pauseReason,
       announcement: this.announcement,
+      playerHits: this.playerHits,
     };
   }
 

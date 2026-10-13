@@ -16,3 +16,5 @@ export function useMediaQuery(query: string): boolean {
 export const TOUCH_DEVICE_QUERY = '(pointer: coarse)';
 /** A touch device held in portrait: matches are played in landscape. */
 export const PORTRAIT_TOUCH_QUERY = '(orientation: portrait) and (pointer: coarse)';
+/** The player asked the system for less motion. */
+export const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';

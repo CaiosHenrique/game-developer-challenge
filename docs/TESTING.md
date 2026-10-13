@@ -2,10 +2,10 @@
 
 Pirate Battle has three test suites:
 
-- **Unit tests** (`npm run test:unit`, 108 tests): Node's test runner through `tsx`, for the
+- **Unit tests** (`npm run test:unit`, 133 tests): Node's test runner through `tsx`, for the
   pure simulation, the API contracts and client, TanStack Query behaviour, the mock API data
   and scenarios, and local storage. No browser.
-- **End-to-end tests** (`npm run test:e2e`, 120 tests): Playwright, against a production build
+- **End-to-end tests** (`npm run test:e2e`, 142 tests): Playwright, against a production build
   made with test hooks (`vite build --mode e2e`) and served by `vite preview` on port 4173,
   with the real MSW service worker. Playwright builds and starts that server itself
   (`webServer` in `playwright.config.ts`). It includes the visual regression, accessibility and
@@ -28,8 +28,8 @@ another Chromium build where it is allowed.
 
 | Project            | Device                                                            | Runs                                                    |
 | ------------------ | ----------------------------------------------------------------- | ------------------------------------------------------- |
-| `chromium-desktop` | Desktop Chrome profile, 1280 × 720                                | every `*.spec.ts` except `*.mobile.spec.ts` (103 tests) |
-| `chromium-mobile`  | Pixel 7 in landscape: 863 × 360, touch, coarse pointer, DPR 2.625 | only `*.mobile.spec.ts` (17 tests)                      |
+| `chromium-desktop` | Desktop Chrome profile, 1280 × 720                                | every `*.spec.ts` except `*.mobile.spec.ts` (123 tests) |
+| `chromium-mobile`  | Pixel 7 in landscape: 863 × 360, touch, coarse pointer, DPR 2.625 | only `*.mobile.spec.ts` (19 tests)                      |
 
 The mobile project covers what differs on a phone: touch controls (several fingers, cancel,
 slide off, pause), orientation (portrait pauses, landscape never resumes), the main flow by
@@ -54,6 +54,9 @@ code on both, and are covered on desktop.
 | 11  | Registration, both tabs updated, pending submission recovered after refresh                     | `submission` (one PUT, both tabs, queued through a reload and sent at start-up, `online` event, Retry, two tabs)                                                                           | `records.mobile` (submitted match in the history; failed one sent from the pending band) |
 | 12  | Resend after a timeout without duplicates, late answers never overwriting newer data            | `scenarios` (stored but answered too late, out-of-order answers, switching scenario mid-load), `submission` (commit then failure, repeated Retry), `records` (late answer for a page left) | —                                                                                        |
 | —   | Visual regression: menu, arena in a stable state, result                                        | `visual`                                                                                                                                                                                   | `visual.mobile` (arena with touch controls)                                              |
+| —   | Damage feedback: hit tint on the player's ship, health bar pulse, reduced motion                | `damage-feedback` (player only, 0.3 s of simulation time, none after the ship sank)                                                                                                        | —                                                                                        |
+| —   | Hit splinters: three per hit on a ship, none for islands or expired balls, reduced motion       | `hit-debris` (30 ticks, spread, effect pool reused, tint and damage stages unchanged)                                                                                                      | `hit-debris.mobile`                                                                      |
+| —   | Sound effects: nothing before Play, events to sounds, pause, mute, Play Again, failures         | `audio` (record of requested sounds in the e2e build; undecodable files, no Web Audio), `pause` (Tab cycle with the mute switch)                                                           | `audio.mobile` (mute switch by touch)                                                    |
 | —   | Accessibility: axe scans (WCAG A/AA, best practices), text contrast over images, keyboard focus | `a11y` (menu, Options with errors, match, pause, Result: submitted, failed, conflict), `focus`                                                                                             | `a11y.mobile` (match with touch controls)                                                |
 
 Asset loading (2), enemy behaviour (5) and the timeout/late-answer rules (12) run on desktop
@@ -126,7 +129,9 @@ build ignores them, and the test hooks below are not in it.
 
 Test hooks (e2e build only): `window.__pirateTest` reads the simulation state and drives the
 manual clock; `window.__pirateMocks` gives the running MSW worker (to add a handler for one
-test), the mock database and MSW's `http`, `HttpResponse` and `delay`.
+test), the mock database and MSW's `http`, `HttpResponse` and `delay`; `window.__pirateAudio`
+gives the audio engine's state and the record of requested sounds with their outcome
+(`played`, `muted`, `paused`, `not-loaded`…), so sound tests need no audio device.
 
 ## Visual regression baselines
 

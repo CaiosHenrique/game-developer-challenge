@@ -1,7 +1,7 @@
 import { Container, Graphics, Rectangle, Sprite, Texture, TilingSprite } from 'pixi.js';
 import { ISLAND_COLLIDERS, ISLAND_FRAMES, ISLANDS, WORLD_HEIGHT, WORLD_WIDTH } from '../arena.ts';
 import { getFrame, shipFrame, type GameTextures, type ShipColor } from '../assets.ts';
-import type { GameConfig } from '../config.ts';
+import { secondsToTicks, type GameConfig } from '../config.ts';
 import type { EnemyKind } from '../sim/ai.ts';
 import { hullCircles, type SimEvent, type Simulation } from '../sim/simulation.ts';
 import { PLAYER_ID } from '../sim/weapons.ts';
@@ -14,6 +14,26 @@ const BAR_FILL = { x: 24, y: 12, w: 112, h: 15 };
 const BAR_SCALE = 0.45;
 /** Distance of a health bar above its ship's center. */
 const BAR_OFFSET_Y = 66;
+
+/** A hit on the player's ship tints its hull this long (in simulation time, so pauses hold it). */
+const HIT_FLASH_SECONDS = 0.3;
+const HIT_TINT = 0xff8a80;
+const NO_TINT = 0xffffff;
+
+/**
+ * Wood splinters of a hit on a ship: three pieces fly apart from the impact point, turning and
+ * fading out. Counted in simulation ticks (a pause holds them); spread without randomness.
+ */
+const DEBRIS_TICKS = 30;
+const DEBRIS_FRAMES = ['wood_1', 'wood_2', 'wood_3', 'wood_4'] as const;
+/** Per piece: speed (world units per tick) and spin (radians per tick). */
+const DEBRIS_PIECES = [
+  { speed: 1.6, spin: 0.18 },
+  { speed: 2.2, spin: -0.24 },
+  { speed: 1.2, spin: 0.12 },
+] as const;
+/** Turns the pieces of each new hit, so consecutive hits do not look the same. */
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
 /** Damage stage from the health fraction: 0 intact, 1 damaged, 2 badly damaged. */
 export function damageStage(hp: number, maxHp: number): 0 | 1 | 2 {
@@ -93,6 +113,18 @@ type Effect = {
   frames: readonly Texture[] | null;
 };
 
+/** One wood splinter; its motion is a function of the ticks since `startTick`. */
+type Debris = {
+  sprite: Sprite;
+  startTick: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  rotation: number;
+  spin: number;
+};
+
 export type RendererStats = {
   /** Sprites currently showing a projectile. */
   projectileSprites: number;
@@ -110,11 +142,16 @@ export type RendererStats = {
   shipStages: Record<number, number>;
   /** Ships currently showing a fire overlay. */
   fires: number;
+  /** Ships whose hull shows the hit tint (only the player's ship ever does). */
+  hitFlashShips: number[];
+  /** Wood splinters on screen, in world coordinates. */
+  debris: { x: number; y: number }[];
 };
 
 /**
  * Draws the simulation. It only reads simulation state and events: visual effects live
- * here, in render time, and never feed back into the deterministic game state.
+ * here, in render time (or simulation ticks for the hit tint and the splinters), and never
+ * feed back into the deterministic game state.
  */
 export class GameRenderer {
   readonly root = new Container();
@@ -133,6 +170,14 @@ export class GameRenderer {
   private readonly effectPool: Sprite[] = [];
   private readonly bars: HealthBar[] = [];
   private renderTime = 0;
+  /** Simulation tick until which the player's hull shows the hit tint. */
+  private playerHitUntil = -1;
+  private readonly hitFlashTicks: number;
+  /** Splinters in flight; their sprites come from, and go back to, the effect pool. */
+  private readonly debris: Debris[] = [];
+  /** Ship hits shown with splinters so far (turns each new spread). */
+  private debrisHits = 0;
+  private readonly woodFrames: readonly Texture[];
 
   private readonly ships: GameTextures['ships'];
   private readonly cannonBall: Texture;
@@ -145,8 +190,11 @@ export class GameRenderer {
     textures: GameTextures,
     private readonly config: GameConfig,
     debugColliders: boolean,
+    /** The player prefers reduced motion: no splinters. */
+    private readonly reducedMotion = false,
   ) {
     const { ships, tiles, ui, water } = textures;
+    this.hitFlashTicks = secondsToTicks(HIT_FLASH_SECONDS, config.simulation.stepsPerSecond);
     this.ships = ships;
     this.cannonBall = getFrame(ships, 'cannon_ball');
     this.smallExplosion = getFrame(ships, 'explosion_3');
@@ -154,6 +202,7 @@ export class GameRenderer {
       getFrame(ships, name),
     );
     this.fireFrames = [getFrame(ships, 'fire_2'), getFrame(ships, 'fire_1')];
+    this.woodFrames = DEBRIS_FRAMES.map((name) => getFrame(ships, name));
     this.barTextures = {
       frame: getFrame(ui, 'enemy_health_frame'),
       green: getFrame(ui, 'enemy_health_fill_green'),
@@ -232,7 +281,19 @@ export class GameRenderer {
       this.projectileSprites.delete(id);
     }
 
-    for (const event of events) this.spawnEffects(event);
+    for (const event of events) {
+      if (event.type === 'shipHit') {
+        if (event.targetId === PLAYER_ID) {
+          this.playerHitUntil = simulation.tick + this.hitFlashTicks;
+        }
+        if (!this.reducedMotion) this.spawnDebris(event.x, event.y, simulation.tick);
+      }
+      this.spawnEffects(event);
+    }
+    this.updateDebris(simulation);
+    // A match that ended (the ship sank or time ran out) shows no hit tint.
+    const hitFlash = simulation.phase === 'running' && simulation.tick < this.playerHitUntil;
+    this.player.hull.tint = hitFlash ? HIT_TINT : NO_TINT;
     this.updateEffects(deltaSeconds);
 
     if (this.debugLayer) this.drawColliders(this.debugLayer, simulation);
@@ -254,6 +315,8 @@ export class GameRenderer {
       healthBars: views.filter(([, view]) => view.bar.root.visible).length,
       shipStages: Object.fromEntries(views.map(([id, view]) => [id, view.stage])),
       fires: views.filter(([, view]) => view.fire.visible).length,
+      hitFlashShips: views.filter(([, view]) => view.hull.tint !== NO_TINT).map(([id]) => id),
+      debris: this.debris.map(({ sprite }) => ({ x: sprite.x, y: sprite.y })),
     };
   }
 
@@ -326,6 +389,53 @@ export class GameRenderer {
         }
         break;
     }
+  }
+
+  /** Three splinters at a hit on a ship, in evenly spread directions turned for each hit. */
+  private spawnDebris(x: number, y: number, tick: number): void {
+    const base = this.debrisHits * GOLDEN_ANGLE;
+    DEBRIS_PIECES.forEach(({ speed, spin }, index) => {
+      const sprite =
+        this.effectPool.pop() ?? this.effectLayer.addChild(new Sprite({ anchor: 0.5 }));
+      sprite.texture = this.woodFrames[(this.debrisHits + index) % this.woodFrames.length]!;
+      sprite.visible = true;
+      sprite.scale.set(1);
+      sprite.alpha = 1;
+      const angle = base + (index * 2 * Math.PI) / DEBRIS_PIECES.length;
+      const piece: Debris = {
+        sprite,
+        startTick: tick,
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        rotation: angle,
+        spin,
+      };
+      this.debris.push(piece);
+    });
+    this.debrisHits += 1;
+  }
+
+  /** Moves the splinters to their place at this tick; finished ones go back to the pool. */
+  private updateDebris(simulation: Simulation): void {
+    // An ended match is frozen: splinters are cleared instead of hanging in the air.
+    const ended = simulation.phase === 'ended';
+    let kept = 0;
+    for (const piece of this.debris) {
+      const age = simulation.tick - piece.startTick;
+      if (ended || age >= DEBRIS_TICKS) {
+        piece.sprite.visible = false;
+        this.effectPool.push(piece.sprite);
+        continue;
+      }
+      const progress = age / DEBRIS_TICKS;
+      piece.sprite.position.set(piece.x + piece.vx * age, piece.y + piece.vy * age);
+      piece.sprite.rotation = piece.rotation + piece.spin * age;
+      piece.sprite.alpha = 1 - progress * progress;
+      this.debris[kept++] = piece;
+    }
+    this.debris.length = kept;
   }
 
   /** A destroyed enemy leaves its wreck, which sinks and fades away. */
