@@ -2,6 +2,7 @@
 // `npm run test:unit`.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { QueryObserver } from '@tanstack/react-query';
 import { createMemoryStorage } from '../mocks/storageFallback.ts';
 import {
   loadLastResultExact,
@@ -90,6 +91,7 @@ test('a confirmed match is recorded, leaves the queue and refreshes both tabs', 
   assert.deepEqual(marked, ['m1']);
   assert.equal(queue.get('m1'), undefined);
   assert.equal(lastAttempt('m1')?.status, 'success');
+  await new Promise((done) => setTimeout(done, 0)); // requests in flight are cancelled first
   assert.equal(client.getQueryState(queryKeys.rankingPage('120s-5s', 1))?.isInvalidated, true);
   assert.equal(client.getQueryState(queryKeys.historyPage('player-1', 1))?.isInvalidated, true);
 });
@@ -278,4 +280,27 @@ test('a recovered record the server holds differently is a conflict, kept in the
   await submitter.submit('m1');
   assert.ok(queue.get('m1'), 'not discarded');
   assert.ok(new PendingSubmissions(storage).get('m1'), 'still stored for a later Retry');
+});
+
+test('a confirmed match refreshes a list whose first load was still in flight', async () => {
+  const { client, queue, submitter } = setup();
+  // The history's first load started before the match was registered and has no data yet.
+  const requests: string[] = [];
+  const observer = new QueryObserver(client, {
+    queryKey: queryKeys.historyPage('player-1', 1),
+    queryFn: () =>
+      new Promise<string>((answer) => {
+        requests.push(requests.length === 0 ? 'before the match' : 'after the match');
+        if (requests.length > 1) answer('with the match');
+      }),
+    retry: false,
+  });
+  const unsubscribe = observer.subscribe(() => {});
+  await new Promise((done) => setTimeout(done, 0));
+  queue.add(record('m1'));
+  await submitter.submit('m1');
+  await new Promise((done) => setTimeout(done, 0));
+  assert.deepEqual(requests, ['before the match', 'after the match']);
+  assert.equal(observer.getCurrentResult().data, 'with the match');
+  unsubscribe();
 });

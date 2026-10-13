@@ -4,7 +4,7 @@ import type { PendingSubmissions } from '../storage/pendingSubmissions.ts';
 import { submitMatch } from './client.ts';
 import type { MatchRecord } from './contracts.ts';
 import { ApiError } from './errors.ts';
-import { queryKeys, retryDelay, shouldRetry } from './queries.ts';
+import { refreshRecordQueries, retryDelay, shouldRetry } from './queries.ts';
 
 /** Mutation keys: one per match, so each match has its own state. */
 export const submissionKeys = {
@@ -81,8 +81,9 @@ export class MatchSubmitter {
       this.inFlight.delete(matchId);
     }
     this.finish(record);
-    void this.client.invalidateQueries({ queryKey: queryKeys.ranking });
-    void this.client.invalidateQueries({ queryKey: queryKeys.history });
+    // Both tabs are asked again; a list still loading is asked anew (its request may have
+    // been answered before the match was stored).
+    refreshRecordQueries(this.client);
   }
 
   /** Whether the server confirmed this match during this session. */
