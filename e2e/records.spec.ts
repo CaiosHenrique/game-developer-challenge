@@ -4,6 +4,7 @@ import { compareHistory, compareRanking, MOCK_DB_KEY } from '../src/mocks/db.ts'
 import { fixtureRecords } from '../src/mocks/fixtures.ts';
 import { STORAGE_KEYS } from '../src/storage/localStore.ts';
 import { collectProblems } from './helpers.ts';
+import { ignoreFailedResources } from './api.ts';
 
 declare global {
   interface Window {
@@ -211,7 +212,7 @@ test.describe('ranking and match history', () => {
     await expect(alert).toContainText('Could not load the ranking. Invalid page.');
     await page.waitForTimeout(2500); // longer than the first retry delay
     expect(await page.evaluate(() => window.__apiCalls!.length)).toBe(1);
-    ignoreFailedResources();
+    ignoreFailedResources(problems);
   });
 
   for (const failure of ['server', 'network'] as const) {
@@ -260,7 +261,7 @@ test.describe('ranking and match history', () => {
       await panel.getByRole('button', { name: 'Try again' }).click();
       await expect(panel.locator('tbody tr')).toHaveCount(10);
       await expect(panel.getByRole('alert')).toHaveCount(0);
-      ignoreFailedResources();
+      ignoreFailedResources(problems);
     });
   }
 
@@ -299,7 +300,7 @@ test.describe('ranking and match history', () => {
       { timeout: 10_000 },
     );
     await expect(panel.locator('tbody tr')).toHaveCount(10);
-    ignoreFailedResources();
+    ignoreFailedResources(problems);
   });
 
   test('a late answer for a page the player left never replaces the page on screen', async ({
@@ -381,7 +382,7 @@ test.describe('ranking and match history', () => {
     await expect(panel.getByRole('status')).toHaveText('Page 2 of 4');
     expect(await rowTexts(panel)).toEqual(secondPage);
     await expect(panel.getByRole('alert')).toHaveCount(0);
-    ignoreFailedResources();
+    ignoreFailedResources(problems);
   });
 
   test('without storage the mock API runs in memory and says the data will not last', async ({
@@ -403,16 +404,4 @@ test.describe('ranking and match history', () => {
     await page.getByRole('tab', { name: 'Match History' }).click();
     await expect(historyPanel(page)).toContainText('No battles recorded yet.');
   });
-
-  /**
-   * Error responses make the browser log "Failed to load resource" for the request. They are
-   * expected in these tests (the app handles them); anything else still fails the test.
-   */
-  function ignoreFailedResources() {
-    problems.splice(
-      0,
-      problems.length,
-      ...problems.filter((message) => !message.startsWith('Failed to load resource')),
-    );
-  }
 });

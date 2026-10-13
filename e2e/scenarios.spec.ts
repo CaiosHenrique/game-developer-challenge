@@ -3,8 +3,9 @@ import type { MatchRecord } from '../src/api/contracts.ts';
 import { compareRanking, MOCK_DB_KEY } from '../src/mocks/db.ts';
 import { fixtureRecords } from '../src/mocks/fixtures.ts';
 import { SCENARIO_KEY } from '../src/mocks/scenarioChoice.ts';
-import { STORAGE_KEYS, type StoredResult } from '../src/storage/localStore.ts';
+import { STORAGE_KEYS } from '../src/storage/localStore.ts';
 import { collectProblems, finishMatch, startGame, waitForMatch } from './helpers.ts';
+import { ignoreFailedResources, lastResult, serverCopies } from './api.ts';
 
 test.use({ timezoneId: 'UTC', locale: 'en-US' });
 
@@ -59,25 +60,6 @@ async function chooseScenario(page: Page, label: string) {
   await expect(panel(page).getByRole('status')).toHaveText(`Scenario set to ${label}.`);
 }
 
-/** How many records the mock server holds for one match. */
-function serverCopies(page: Page, matchId: string): Promise<number> {
-  return page.evaluate(
-    ({ matchId, playerKey }) => {
-      const { playerId } = JSON.parse(localStorage.getItem(playerKey)!) as { playerId: string };
-      return window
-        .__pirateMocks!.db.playerMatches(playerId, 1, 50)
-        .items.filter((match) => match.matchId === matchId).length;
-    },
-    { matchId, playerKey: STORAGE_KEYS.player },
-  );
-}
-
-const lastResult = (page: Page) =>
-  page.evaluate(
-    (key) => JSON.parse(localStorage.getItem(key) ?? 'null') as StoredResult | null,
-    STORAGE_KEYS.lastResult,
-  );
-
 test.describe('network scenarios', () => {
   let problems: string[];
 
@@ -88,15 +70,6 @@ test.describe('network scenarios', () => {
   test.afterEach(() => {
     expect(problems).toEqual([]);
   });
-
-  /** Error responses make the browser log "Failed to load resource"; the app handles them. */
-  function ignoreFailedResources() {
-    problems.splice(
-      0,
-      problems.length,
-      ...problems.filter((message) => !message.startsWith('Failed to load resource')),
-    );
-  }
 
   test('the panel chooses a scenario that survives a reload; a valid ?api= wins', async ({
     page,
@@ -198,7 +171,7 @@ test.describe('network scenarios', () => {
       );
       await page.waitForTimeout(1500); // a retry would have started by now
       expect(await apiRequests(page, '/api/ranking')).toBe(requests);
-      ignoreFailedResources();
+      ignoreFailedResources(problems);
     });
   }
 
@@ -213,7 +186,7 @@ test.describe('network scenarios', () => {
     await expect(rankingPanel(page).locator('tbody tr')).toHaveCount(10);
     await page.getByRole('tab', { name: 'Match History' }).click();
     await expect(historyPanel(page).getByRole('alert')).toBeVisible({ timeout: 10_000 });
-    ignoreFailedResources();
+    ignoreFailedResources(problems);
   });
 
   test('a registration stored but answered too late is recovered by the retry, once', async ({
@@ -254,7 +227,7 @@ test.describe('network scenarios', () => {
     await expect(band).toHaveCount(0);
     await expect(historyPanel(page).locator('tbody tr')).toHaveCount(1);
     expect(await serverCopies(page, matchId)).toBe(1);
-    ignoreFailedResources();
+    ignoreFailedResources(problems);
   });
 
   test('switching scenario during a first load asks again at once, under the new scenario', async ({
@@ -371,6 +344,6 @@ test.describe('network scenarios', () => {
     await band.getByRole('button', { name: 'Retry' }).click();
     await expect(band).toHaveCount(0);
     expect(await serverCopies(page, pending)).toBe(1);
-    ignoreFailedResources();
+    ignoreFailedResources(problems);
   });
 });

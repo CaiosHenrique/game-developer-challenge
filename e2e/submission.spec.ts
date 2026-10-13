@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import type { MatchRecord } from '../src/api/contracts.ts';
 import { STORAGE_KEYS, type StoredResult } from '../src/storage/localStore.ts';
 import { collectProblems, finishMatch, startGame, waitForMatch } from './helpers.ts';
+import { ignoreFailedResources, lastResult, overridePut, serverCopies } from './api.ts';
 
 declare global {
   interface Window {
@@ -17,46 +18,7 @@ const historyPanel = (page: Page) => page.getByRole('tabpanel', { name: 'Match H
 const pendingBand = (page: Page) =>
   page.getByRole('region', { name: 'Battles waiting to be submitted' });
 
-/**
- * Replaces the registration endpoint. Every request is counted; `count` then lets the
- * normal handler answer, the others answer with a failure (`commit-then-503` stores the
- * match first, like a server that fails after committing).
- */
-async function overridePut(
-  page: Page,
-  behavior: 'count' | '503' | 'commit-then-503' | '409',
-): Promise<void> {
-  await page.evaluate((kind) => {
-    const { worker, http, HttpResponse, db } = window.__pirateMocks!;
-    window.__apiCalls = [];
-    worker.use(
-      http.put('/api/matches/:matchId', async ({ request }) => {
-        window.__apiCalls!.push(request.url);
-        if (kind === 'count') return;
-        if (kind === '409') {
-          return HttpResponse.json(
-            { error: { code: 'conflict', message: 'Another record already uses this match id.' } },
-            { status: 409 },
-          );
-        }
-        if (kind === 'commit-then-503') db.upsert((await request.clone().json()) as MatchRecord);
-        return HttpResponse.json(
-          { error: { code: 'unavailable', message: 'Down for repairs.' } },
-          { status: 503 },
-        );
-      }),
-    );
-  }, behavior);
-}
-
 const putCount = (page: Page) => page.evaluate(() => window.__apiCalls!.length);
-
-/** The last finished match stored on this device. */
-const lastResult = (page: Page) =>
-  page.evaluate(
-    (key) => JSON.parse(localStorage.getItem(key) ?? 'null') as StoredResult | null,
-    STORAGE_KEYS.lastResult,
-  );
 
 /** Matches still waiting in this device's queue. */
 const queued = (page: Page) =>
@@ -64,19 +26,6 @@ const queued = (page: Page) =>
     (key) => JSON.parse(localStorage.getItem(key) ?? '[]') as MatchRecord[],
     STORAGE_KEYS.pendingMatches,
   );
-
-/** How many records the mock server holds for one match (never more than one). */
-function serverCopies(page: Page, matchId: string): Promise<number> {
-  return page.evaluate(
-    ({ matchId, playerKey }) => {
-      const { playerId } = JSON.parse(localStorage.getItem(playerKey)!) as { playerId: string };
-      return window
-        .__pirateMocks!.db.playerMatches(playerId, 1, 50)
-        .items.filter((match) => match.matchId === matchId).length;
-    },
-    { matchId, playerKey: STORAGE_KEYS.player },
-  );
-}
 
 async function openHistory(page: Page) {
   await page.getByRole('button', { name: 'Main Menu' }).click();
@@ -93,15 +42,6 @@ test.describe('match submission', () => {
   test.afterEach(() => {
     expect(problems).toEqual([]);
   });
-
-  /** Error responses make the browser log "Failed to load resource"; the app handles them. */
-  function ignoreFailedResources() {
-    problems.splice(
-      0,
-      problems.length,
-      ...problems.filter((message) => !message.startsWith('Failed to load resource')),
-    );
-  }
 
   test('a finished match is submitted once and appears in both tabs', async ({ page }) => {
     // A setup no fixture uses, so the match is alone in its ranking.
@@ -156,7 +96,7 @@ test.describe('match submission', () => {
     await openHistory(page);
     await expect(historyPanel(page).locator('tbody tr')).toHaveCount(1);
     await expect(pendingBand(page)).toHaveCount(0);
-    ignoreFailedResources();
+    ignoreFailedResources(problems);
   });
 
   test('a server that commits then fails: retries and repeated Retry keep one record', async ({
@@ -193,7 +133,7 @@ test.describe('match submission', () => {
     expect(await queued(page)).toEqual([]);
     await openHistory(page);
     await expect(historyPanel(page).locator('tbody tr')).toHaveCount(1);
-    ignoreFailedResources();
+    ignoreFailedResources(problems);
   });
 
   test('a match the server already has is never listed twice in Match History', async ({
@@ -212,7 +152,7 @@ test.describe('match submission', () => {
     await openHistory(page);
     await expect(historyPanel(page).locator('tbody tr')).toHaveCount(1);
     await expect(pendingBand(page)).toHaveCount(0);
-    ignoreFailedResources();
+    ignoreFailedResources(problems);
   });
 
   test('Match History lists pending battles with a Retry', async ({ page }) => {
@@ -234,7 +174,7 @@ test.describe('match submission', () => {
     await band.getByRole('button', { name: 'Retry' }).click();
     await expect(band).toHaveCount(0);
     await expect(historyPanel(page).locator('tbody tr')).toHaveCount(1);
-    ignoreFailedResources();
+    ignoreFailedResources(problems);
   });
 
   test('the browser coming back online sends what is queued', async ({ page }) => {
@@ -250,7 +190,7 @@ test.describe('match submission', () => {
     });
     await expect(registration(page)).toHaveText('Submitted');
     expect(await queued(page)).toEqual([]);
-    ignoreFailedResources();
+    ignoreFailedResources(problems);
   });
 
   test('a conflict is shown as such, never retried automatically, and can be retried', async ({
@@ -270,7 +210,7 @@ test.describe('match submission', () => {
     await expect(registration(page)).toHaveText(
       'Conflict: the online ranking holds a different record for this match.',
     );
-    ignoreFailedResources();
+    ignoreFailedResources(problems);
   });
 
   test('storage that stops accepting writes: the menu says data is kept in memory only', async ({
@@ -332,7 +272,7 @@ test.describe('match submission', () => {
     await expect(pendingBand(page)).toHaveCount(0);
     await panel.getByRole('button', { name: 'Previous match history page' }).click();
     await expect(pendingBand(page)).toBeVisible();
-    ignoreFailedResources();
+    ignoreFailedResources(problems);
   });
 
   test('finishing a new match also sends the older pending ones', async ({ page }) => {
@@ -353,7 +293,7 @@ test.describe('match submission', () => {
     await expect.poll(() => queued(page)).toEqual([]);
     expect(await serverCopies(page, first)).toBe(1);
     expect(await serverCopies(page, second)).toBe(1);
-    ignoreFailedResources();
+    ignoreFailedResources(problems);
   });
 
   test('a confirmed match this device could not record is recovered from its stored result', async ({
@@ -439,7 +379,7 @@ test.describe('match submission', () => {
     await expect(registration(page)).toHaveText('Submitted');
     expect(await queued(page)).toEqual([]);
     expect(await serverCopies(page, 'old-match')).toBe(1);
-    ignoreFailedResources();
+    ignoreFailedResources(problems);
   });
 
   test('two tabs with pending matches never lose one another', async ({ page, context }) => {
@@ -472,7 +412,7 @@ test.describe('match submission', () => {
     // The mock server, one per tab over the same storage, kept both confirmed matches.
     expect(await serverCopies(page, first!)).toBe(1);
     expect(await serverCopies(page, second!)).toBe(1);
-    ignoreFailedResources();
+    ignoreFailedResources(problems);
     const unexpected = otherProblems.filter(
       (message) => !message.startsWith('Failed to load resource'),
     );
@@ -519,6 +459,6 @@ test.describe('match submission', () => {
       status: 409,
       code: 'conflict',
     });
-    ignoreFailedResources();
+    ignoreFailedResources(problems);
   });
 });

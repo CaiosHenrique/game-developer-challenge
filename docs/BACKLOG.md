@@ -27,3 +27,7 @@ should be reviewed.
   of the match is likewise hygiene: an ended simulation ignores input. Decided in M2b to keep
   the redundancy and not change code for it; review in M4 whether a finer-grained check is
   worth adding.
+- **Closed in M4: accepted as it is.** The observable effect is covered (a finger still on
+  the screen does not act after a pause, a resume or the end of the match). A finer test
+  would need to expose the internal input state only for tests, with no proportional
+  benefit. The input code is unchanged.
