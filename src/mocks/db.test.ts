@@ -9,7 +9,7 @@ import {
   type MatchRecord,
 } from '../api/contracts.ts';
 import { compareRanking, MOCK_DB_KEY, MockDb, paginate } from './db.ts';
-import { fixtureRecords } from './fixtures.ts';
+import { fixtureRecords, manyPagesHistory, manyPagesRanking } from './fixtures.ts';
 import { createMemoryStorage } from './storageFallback.ts';
 
 const CONFIG = { sessionSeconds: 120, spawnIntervalSeconds: 5 };
@@ -235,4 +235,45 @@ test('in memory, a tab keeps its own records instead of re-reading storage', () 
   db.upsert(record({ matchId: 'only-in-memory', playerId: 'me' }));
   assert.equal(db.persistence, 'memory');
   assert.equal(db.playerMatches('me', 1, 10).totalItems, 1);
+});
+
+test('reset restores the fixtures, stored for the next page load', () => {
+  const storage = createMemoryStorage();
+  const db = new MockDb(storage, () => [record({ matchId: 'fixture' })]);
+  db.upsert(record({ matchId: 'mine', score: 9 }));
+  assert.equal(db.ranking('120s-5s', 1, 10).totalItems, 2);
+  db.reset();
+  assert.deepEqual(
+    db.ranking('120s-5s', 1, 10).items.map((entry) => entry.matchId),
+    ['fixture'],
+  );
+  assert.equal(new MockDb(storage, () => []).ranking('120s-5s', 1, 10).totalItems, 1);
+});
+
+test('extra records are listed in one answer only, never stored', () => {
+  const storage = createMemoryStorage();
+  const db = new MockDb(storage, () => [record({ matchId: 'fixture', playerId: 'me' })]);
+  const before = storage.getItem(MOCK_DB_KEY);
+  const extra = [record({ matchId: 'extra', playerId: 'me', score: 50 })];
+  assert.equal(db.ranking('120s-5s', 1, 10, extra).items[0]!.matchId, 'extra');
+  assert.equal(db.playerMatches('me', 1, 10, extra).totalItems, 2);
+  assert.equal(db.ranking('120s-5s', 1, 10).totalItems, 1);
+  assert.equal(storage.getItem(MOCK_DB_KEY), before);
+});
+
+test('many-pages data is generated the same way every time and fits the contract', () => {
+  const ranking = manyPagesRanking('120s-5s');
+  assert.deepEqual(manyPagesRanking('120s-5s'), ranking);
+  assert.equal(ranking.length, 200);
+  for (const match of ranking) matchRecordSchema.parse(match);
+  assert.equal(new Set(ranking.map((match) => match.matchId)).size, ranking.length);
+  assert.ok(ranking.every((match) => match.configKey === '120s-5s'));
+  assert.deepEqual(manyPagesRanking('not-a-key'), []);
+  const history = manyPagesHistory('me', 'Captain ME');
+  assert.equal(history.length, 45);
+  assert.ok(history.every((match) => match.playerId === 'me'));
+  for (const match of history) matchRecordSchema.parse(match);
+  // A full answer with the extra matches is a valid, consistent page.
+  const db = new MockDb(null);
+  rankingPageSchema.parse(db.ranking('120s-5s', 3, 10, ranking));
 });

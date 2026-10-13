@@ -2,6 +2,7 @@ import { useRef, useState, type KeyboardEvent } from 'react';
 import type { GameOptions } from '../game/options.ts';
 import type { MockApiStatus } from '../mocks/status.ts';
 import type { Player } from '../storage/localStore.ts';
+import { NetworkScenarios } from './NetworkScenarios.tsx';
 import { HistoryPanel, RankingPanel } from './RecordsPanels.tsx';
 import { MENU_ART } from './uiArt.ts';
 import { TOUCH_DEVICE_QUERY, useMediaQuery } from './useMediaQuery.ts';
@@ -178,6 +179,7 @@ export function MainMenu({
           </dl>
         </section>
         <MenuTabs options={options} player={player} mockApi={mockApi} />
+        {mockApi.state === 'running' && <NetworkScenarios status={mockApi} />}
       </section>
     </main>
   );

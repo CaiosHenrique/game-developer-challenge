@@ -62,3 +62,74 @@ export function fixtureRecords(): MatchRecord[] {
   }
   return records;
 }
+
+/** A stable seed from a text (FNV-1a), so generated lists depend only on what they are for. */
+function seedOf(text: string): number {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index += 1) {
+    hash = Math.imul(hash ^ text.charCodeAt(index), 0x01000193);
+  }
+  return hash >>> 0;
+}
+
+/** The configuration back from its key, e.g. "120s-2.5s" (null if it is not one). */
+function configFromKey(configKey: string): MatchConfig | null {
+  const match = /^(\d+)s-(\d+(?:\.5)?)s$/.exec(configKey);
+  return match
+    ? { sessionSeconds: Number(match[1]), spawnIntervalSeconds: Number(match[2]) }
+    : null;
+}
+
+const EXTRA_RANKING = 200;
+const EXTRA_HISTORY = 45;
+
+/**
+ * Extra matches for the "many pages" scenario, older than the fixtures. The same seed text
+ * always gives the same matches. They are only listed in answers, never stored.
+ */
+function generated(
+  seedText: string,
+  count: number,
+  config: MatchConfig,
+  identity: (index: number, rng: Rng) => Pick<MatchRecord, 'matchId' | 'playerId' | 'playerName'>,
+): MatchRecord[] {
+  const rng = new Rng(seedOf(seedText));
+  return Array.from({ length: count }, (_, index) => {
+    const who = identity(index, rng);
+    const sunk = rng.next() < 0.45;
+    const durationSeconds = sunk ? 20 + rng.int(config.sessionSeconds - 20) : config.sessionSeconds;
+    const pace = 0.1 + rng.next() * 0.6;
+    return {
+      ...who,
+      finishedAt: new Date(FIRST_MATCH_AT - (index + 1) * 7 * HOUR_MS).toISOString(),
+      score: Math.round((durationSeconds / config.spawnIntervalSeconds) * pace),
+      durationSeconds,
+      endReason: sunk ? 'death' : 'time',
+      config,
+      configKey: configKeyOf(config),
+    };
+  });
+}
+
+/** Extra ranking entries for one configuration (from other fictional captains). */
+export function manyPagesRanking(configKey: string): MatchRecord[] {
+  const config = configFromKey(configKey);
+  if (!config) return [];
+  return generated(`ranking:${configKey}`, EXTRA_RANKING, config, (index, rng) => {
+    const captain = rng.int(CAPTAINS.length);
+    return {
+      matchId: `extra-${configKey}-${String(index).padStart(3, '0')}`,
+      playerId: `fixture-player-${String(captain + 1).padStart(2, '0')}`,
+      playerName: CAPTAINS[captain]!,
+    };
+  });
+}
+
+/** Extra history entries for one player (played with the default options). */
+export function manyPagesHistory(playerId: string, playerName: string): MatchRecord[] {
+  return generated(`history:${playerId}`, EXTRA_HISTORY, FIXTURE_GROUPS[0]!.config, (index) => ({
+    matchId: `extra-history-${String(index).padStart(3, '0')}`,
+    playerId,
+    playerName,
+  }));
+}

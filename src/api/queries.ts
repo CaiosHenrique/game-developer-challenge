@@ -37,6 +37,19 @@ export function createQueryClient(): QueryClient {
 }
 
 /**
+ * Asks the ranking and the history again because what the server answers has changed (the
+ * network scenario, or the mock data after a reset or in another tab). Requests still in
+ * flight are cancelled first: otherwise a first load without data would keep its old request
+ * and show an answer given under the previous conditions. The lists on screen are then
+ * fetched again, and the others are refetched when they are shown.
+ */
+export function refreshRecordQueries(client: QueryClient): void {
+  for (const queryKey of [queryKeys.ranking, queryKeys.history]) {
+    void client.cancelQueries({ queryKey }).then(() => client.invalidateQueries({ queryKey }));
+  }
+}
+
+/**
  * Shared options of the paginated lists:
  * - while another page loads, the previous one stays on screen (marked as placeholder);
  * - showing a tab again always refreshes it in the background.

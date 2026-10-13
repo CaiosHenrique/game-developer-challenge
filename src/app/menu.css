@@ -447,3 +447,40 @@ kbd {
   display: block;
   margin: 0.4rem 0 0 auto;
 }
+
+/* Network scenarios of the mock API (developer panel) */
+.mock-panel {
+  margin-top: 0.75rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid rgb(244 234 213 / 25%);
+  border-radius: 0.4rem;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.mock-panel summary {
+  cursor: pointer;
+  color: #f7d9a2;
+}
+
+.mock-panel-body {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  justify-items: start;
+}
+
+.mock-panel select {
+  min-height: 2.25rem;
+  max-width: 100%;
+  border: 1px solid #b9742f;
+  border-radius: 0.4rem;
+  background: #2a3a4d;
+  color: #f4ead5;
+  font: inherit;
+}
+
+.mock-panel-description,
+.mock-panel-status {
+  margin: 0;
+}

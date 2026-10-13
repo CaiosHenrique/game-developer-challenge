@@ -4,7 +4,13 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { keepPreviousData, QueryObserver, type QueryClient } from '@tanstack/react-query';
 import { ApiError } from './errors.ts';
-import { createQueryClient, queryKeys, retryDelay, shouldRetry } from './queries.ts';
+import {
+  createQueryClient,
+  queryKeys,
+  refreshRecordQueries,
+  retryDelay,
+  shouldRetry,
+} from './queries.ts';
 
 /** A promise resolved from outside, to decide the order in which responses arrive. */
 function deferred<Value>() {
@@ -123,6 +129,51 @@ test('a late answer for the previous page is never shown as the current page', a
   const current = observer.getCurrentResult();
   assert.equal(current.data, 'page 2');
   assert.equal(current.isPlaceholderData, false);
+  unsubscribe();
+  client.clear();
+});
+
+test('refreshing after a scenario change replaces even a first load still in flight', async () => {
+  const client = createQueryClient();
+  const { calls, queryFn } = controlledFetch();
+  const { observer, unsubscribe } = observe(client, 1, queryFn);
+  await settle();
+  assert.equal(calls.length, 1); // first load, no data yet, answered under the old scenario
+
+  refreshRecordQueries(client); // what the panel (or another tab's change) triggers
+  await settle();
+  assert.equal(calls.length, 2, 'a new request, not the old one reused');
+  assert.equal(calls[0]!.signal.aborted, true);
+
+  calls[0]!.answer('old scenario'); // even arriving first, it is not shown
+  await settle();
+  assert.equal(observer.getCurrentResult().data, undefined);
+  calls[1]!.answer('new scenario');
+  await settle();
+  assert.equal(observer.getCurrentResult().data, 'new scenario');
+  unsubscribe();
+  client.clear();
+});
+
+test('refreshing a list that has data keeps it on screen until the new answer', async () => {
+  const client = createQueryClient();
+  const { calls, queryFn } = controlledFetch();
+  const { observer, unsubscribe } = observe(client, 1, queryFn);
+  await settle();
+  calls[0]!.answer('before');
+  await settle();
+  void observer.refetch(); // a refresh in flight when the scenario changes
+  await settle();
+
+  refreshRecordQueries(client);
+  await settle();
+  assert.equal(calls.length, 3);
+  assert.equal(calls[1]!.signal.aborted, true);
+  assert.equal(observer.getCurrentResult().data, 'before'); // still shown meanwhile
+  calls[1]!.answer('stale');
+  calls[2]!.answer('after');
+  await settle();
+  assert.equal(observer.getCurrentResult().data, 'after');
   unsubscribe();
   client.clear();
 });

@@ -144,23 +144,42 @@ export class MockDb {
     return { outcome: 'created', record };
   }
 
-  /** Matches played with one configuration, ranked; `rank` is the position in that order. */
-  ranking(configKey: string, page: number, pageSize: number): Page<RankingEntry> {
+  /**
+   * Matches played with one configuration, ranked; `rank` is the position in that order.
+   * `extra` records are listed too, for this answer only (never stored).
+   */
+  ranking(
+    configKey: string,
+    page: number,
+    pageSize: number,
+    extra: MatchRecord[] = [],
+  ): Page<RankingEntry> {
     this.refresh();
-    const ranked = this.records
+    const ranked = [...this.records, ...extra]
       .filter((record) => record.configKey === configKey)
       .sort(compareRanking)
       .map((record, index) => ({ ...record, rank: index + 1 }));
     return paginate(ranked, page, pageSize);
   }
 
-  /** Matches of one player, most recent first. */
-  playerMatches(playerId: string, page: number, pageSize: number): Page<MatchRecord> {
+  /** Matches of one player, most recent first (`extra`: listed for this answer only). */
+  playerMatches(
+    playerId: string,
+    page: number,
+    pageSize: number,
+    extra: MatchRecord[] = [],
+  ): Page<MatchRecord> {
     this.refresh();
-    const matches = this.records
+    const matches = [...this.records, ...extra]
       .filter((record) => record.playerId === playerId)
       .sort(compareHistory);
     return paginate(matches, page, pageSize);
+  }
+
+  /** Back to the initial data: the fixtures (stored, unless the data lives in memory). */
+  reset(): void {
+    this.records = this.fixtures();
+    this.save();
   }
 
   /**
