@@ -21,6 +21,7 @@
     "test:unit": "tsx --test --test-timeout=60000 \"src/**/*.test.ts\"",
     "test:e2e": "playwright test",
     "test:e2e:report": "playwright show-report",
+    "perf": "playwright test --config playwright.perf.config.ts",
     "balance": "tsx scripts/balance.ts"
   },
   "dependencies": {

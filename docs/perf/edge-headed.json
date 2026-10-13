@@ -1,0 +1,615 @@
+{
+  "generatedAt": "2026-10-13T05:10:12.018Z",
+  "environment": {
+    "os": "Windows_NT 10.0.26200 (x64)",
+    "cpu": "AMD Ryzen 5 5600 6-Core Processor",
+    "logicalCores": 12,
+    "memoryGB": 16,
+    "browser": "chromium 155.0.4283.45",
+    "headless": false,
+    "gpu": {
+      "vendor": "Google Inc. (AMD)",
+      "renderer": "ANGLE (AMD, AMD Radeon RX 6600 (0x000073FF) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+    },
+    "viewport": "1280x720",
+    "devicePixelRatio": 1,
+    "screen": "1280x720",
+    "build": "vite build --mode e2e (minified production build with test hooks)",
+    "commit": "7058470",
+    "uncommittedChanges": true
+  },
+  "refreshMs": 6.1,
+  "startup": {
+    "runs": [
+      {
+        "responseEndMs": 8,
+        "domContentLoadedMs": 215,
+        "loadMs": 215,
+        "menuReadyMs": 306,
+        "rankingReadyMs": 500,
+        "consoleProblems": [],
+        "abortedRequests": 0
+      },
+      {
+        "responseEndMs": 4,
+        "domContentLoadedMs": 103,
+        "loadMs": 104,
+        "menuReadyMs": 188,
+        "rankingReadyMs": 384,
+        "consoleProblems": [],
+        "abortedRequests": 0
+      },
+      {
+        "responseEndMs": 4,
+        "domContentLoadedMs": 108,
+        "loadMs": 108,
+        "menuReadyMs": 185,
+        "rankingReadyMs": 379,
+        "consoleProblems": [],
+        "abortedRequests": 0
+      }
+    ],
+    "summary": {
+      "responseEndMs": {
+        "median": 4,
+        "min": 4,
+        "max": 8,
+        "n": 3
+      },
+      "domContentLoadedMs": {
+        "median": 108,
+        "min": 103,
+        "max": 215,
+        "n": 3
+      },
+      "loadMs": {
+        "median": 108,
+        "min": 104,
+        "max": 215,
+        "n": 3
+      },
+      "menuReadyMs": {
+        "median": 188,
+        "min": 185,
+        "max": 306,
+        "n": 3
+      },
+      "rankingReadyMs": {
+        "median": 384,
+        "min": 379,
+        "max": 500,
+        "n": 3
+      }
+    }
+  },
+  "match": {
+    "settings": {
+      "scenario": "endless-spawns (the player cannot sink; enemies spawn as usual)",
+      "matchSeconds": 180,
+      "stabilizationMs": 3000,
+      "scriptedPauseMs": 3000
+    },
+    "runs": [
+      {
+        "valid": true,
+        "interrupted": null,
+        "matchSeconds": 184.6,
+        "entryMs": 149,
+        "stabilization": {
+          "validIntervals": 493,
+          "invalidFrames": 0,
+          "validSeconds": 3,
+          "fpsAverage": 164.7,
+          "frameMs": {
+            "p50": 6.1,
+            "p95": 6.2,
+            "p99": 6.3,
+            "max": 12.1
+          },
+          "missedRefreshes": 1,
+          "over50ms": 0,
+          "over100ms": 0
+        },
+        "steady": {
+          "validIntervals": 29392,
+          "invalidFrames": 496,
+          "validSeconds": 178.1,
+          "fpsAverage": 165,
+          "frameMs": {
+            "p50": 6.1,
+            "p95": 6.2,
+            "p99": 6.3,
+            "max": 6.6
+          },
+          "missedRefreshes": 0,
+          "over50ms": 0,
+          "over100ms": 0
+        },
+        "longAnimationFrames": {
+          "supported": true,
+          "count": 0,
+          "maxMs": 0,
+          "over100ms": []
+        },
+        "pause": {
+          "tickBefore": 3692,
+          "tickAfter": 3692
+        },
+        "entities": {
+          "samples": 179,
+          "enemies": {
+            "max": 6,
+            "average": 5.3
+          },
+          "projectiles": {
+            "max": 3,
+            "average": 0.6
+          },
+          "effects": {
+            "max": 4,
+            "average": 0.9
+          },
+          "displayObjects": {
+            "max": 15,
+            "average": 12.5
+          },
+          "sampleCostMs": {
+            "median": 0,
+            "min": 0,
+            "max": 0.2,
+            "n": 179
+          }
+        },
+        "navigation": {
+          "resultToMenuMs": 38,
+          "menuToOptionsMs": 30,
+          "optionsToMenuMs": 30,
+          "historyTabMs": 227
+        },
+        "consoleProblems": [],
+        "abortedRequests": 2
+      },
+      {
+        "valid": true,
+        "interrupted": null,
+        "matchSeconds": 184.7,
+        "entryMs": 140,
+        "stabilization": {
+          "validIntervals": 494,
+          "invalidFrames": 0,
+          "validSeconds": 3,
+          "fpsAverage": 165,
+          "frameMs": {
+            "p50": 6.1,
+            "p95": 6.2,
+            "p99": 6.3,
+            "max": 6.4
+          },
+          "missedRefreshes": 0,
+          "over50ms": 0,
+          "over100ms": 0
+        },
+        "steady": {
+          "validIntervals": 29405,
+          "invalidFrames": 497,
+          "validSeconds": 178.2,
+          "fpsAverage": 165,
+          "frameMs": {
+            "p50": 6.1,
+            "p95": 6.2,
+            "p99": 6.3,
+            "max": 6.6
+          },
+          "missedRefreshes": 0,
+          "over50ms": 0,
+          "over100ms": 0
+        },
+        "longAnimationFrames": {
+          "supported": true,
+          "count": 0,
+          "maxMs": 0,
+          "over100ms": []
+        },
+        "pause": {
+          "tickBefore": 3684,
+          "tickAfter": 3684
+        },
+        "entities": {
+          "samples": 179,
+          "enemies": {
+            "max": 6,
+            "average": 5.3
+          },
+          "projectiles": {
+            "max": 3,
+            "average": 0.7
+          },
+          "effects": {
+            "max": 5,
+            "average": 0.9
+          },
+          "displayObjects": {
+            "max": 17,
+            "average": 13.6
+          },
+          "sampleCostMs": {
+            "median": 0,
+            "min": 0,
+            "max": 0.2,
+            "n": 179
+          }
+        },
+        "navigation": {
+          "resultToMenuMs": 35,
+          "menuToOptionsMs": 32,
+          "optionsToMenuMs": 32,
+          "historyTabMs": 225
+        },
+        "consoleProblems": [],
+        "abortedRequests": 2
+      },
+      {
+        "valid": true,
+        "interrupted": null,
+        "matchSeconds": 185,
+        "entryMs": 157,
+        "stabilization": {
+          "validIntervals": 494,
+          "invalidFrames": 0,
+          "validSeconds": 3,
+          "fpsAverage": 165,
+          "frameMs": {
+            "p50": 6.1,
+            "p95": 6.2,
+            "p99": 6.3,
+            "max": 6.3
+          },
+          "missedRefreshes": 0,
+          "over50ms": 0,
+          "over100ms": 0
+        },
+        "steady": {
+          "validIntervals": 29451,
+          "invalidFrames": 498,
+          "validSeconds": 178.5,
+          "fpsAverage": 165,
+          "frameMs": {
+            "p50": 6.1,
+            "p95": 6.2,
+            "p99": 6.3,
+            "max": 6.6
+          },
+          "missedRefreshes": 0,
+          "over50ms": 0,
+          "over100ms": 0
+        },
+        "longAnimationFrames": {
+          "supported": true,
+          "count": 0,
+          "maxMs": 0,
+          "over100ms": []
+        },
+        "pause": {
+          "tickBefore": 3690,
+          "tickAfter": 3690
+        },
+        "entities": {
+          "samples": 179,
+          "enemies": {
+            "max": 6,
+            "average": 5.4
+          },
+          "projectiles": {
+            "max": 3,
+            "average": 0.5
+          },
+          "effects": {
+            "max": 5,
+            "average": 0.8
+          },
+          "displayObjects": {
+            "max": 19,
+            "average": 14.5
+          },
+          "sampleCostMs": {
+            "median": 0,
+            "min": 0,
+            "max": 0.2,
+            "n": 179
+          }
+        },
+        "navigation": {
+          "resultToMenuMs": 35,
+          "menuToOptionsMs": 33,
+          "optionsToMenuMs": 30,
+          "historyTabMs": 230
+        },
+        "consoleProblems": [],
+        "abortedRequests": 2
+      }
+    ],
+    "validRuns": 3,
+    "summary": {
+      "fpsAverage": {
+        "median": 165,
+        "min": 165,
+        "max": 165,
+        "n": 3
+      },
+      "frameP50": {
+        "median": 6.1,
+        "min": 6.1,
+        "max": 6.1,
+        "n": 3
+      },
+      "frameP95": {
+        "median": 6.2,
+        "min": 6.2,
+        "max": 6.2,
+        "n": 3
+      },
+      "frameP99": {
+        "median": 6.3,
+        "min": 6.3,
+        "max": 6.3,
+        "n": 3
+      },
+      "frameMax": {
+        "median": 6.6,
+        "min": 6.6,
+        "max": 6.6,
+        "n": 3
+      },
+      "missedRefreshes": {
+        "median": 0,
+        "min": 0,
+        "max": 0,
+        "n": 3
+      },
+      "over50ms": {
+        "median": 0,
+        "min": 0,
+        "max": 0,
+        "n": 3
+      },
+      "entryMs": {
+        "median": 149,
+        "min": 140,
+        "max": 157,
+        "n": 3
+      }
+    }
+  },
+  "cycles": {
+    "settings": {
+      "cycles": 6,
+      "playedSecondsPerCycle": 20,
+      "quickCycles": 20
+    },
+    "atMenuAfterGc": [
+      {
+        "cycle": 0,
+        "jsHeapUsedMB": 5.59,
+        "jsHeapTotalMB": 6.73,
+        "domNodes": 241,
+        "jsEventListeners": 178,
+        "documents": 1,
+        "canvases": 0
+      },
+      {
+        "cycle": 1,
+        "jsHeapUsedMB": 8.38,
+        "jsHeapTotalMB": 9.55,
+        "domNodes": 245,
+        "jsEventListeners": 200,
+        "documents": 1,
+        "canvases": 0
+      },
+      {
+        "cycle": 2,
+        "jsHeapUsedMB": 8.65,
+        "jsHeapTotalMB": 9.8,
+        "domNodes": 245,
+        "jsEventListeners": 200,
+        "documents": 1,
+        "canvases": 0
+      },
+      {
+        "cycle": 3,
+        "jsHeapUsedMB": 8.89,
+        "jsHeapTotalMB": 10.05,
+        "domNodes": 245,
+        "jsEventListeners": 200,
+        "documents": 1,
+        "canvases": 0
+      },
+      {
+        "cycle": 4,
+        "jsHeapUsedMB": 9.09,
+        "jsHeapTotalMB": 10.05,
+        "domNodes": 245,
+        "jsEventListeners": 200,
+        "documents": 1,
+        "canvases": 0
+      },
+      {
+        "cycle": 5,
+        "jsHeapUsedMB": 9.32,
+        "jsHeapTotalMB": 10.3,
+        "domNodes": 245,
+        "jsEventListeners": 200,
+        "documents": 1,
+        "canvases": 0
+      },
+      {
+        "cycle": 6,
+        "jsHeapUsedMB": 9.39,
+        "jsHeapTotalMB": 10.3,
+        "domNodes": 245,
+        "jsEventListeners": 200,
+        "documents": 1,
+        "canvases": 0
+      }
+    ],
+    "cycles": [
+      {
+        "cycle": 1,
+        "entryMs": 160,
+        "liveRuntimesDuringMatch": 1,
+        "interrupted": null,
+        "frames": {
+          "validIntervals": 2936,
+          "invalidFrames": 0,
+          "validSeconds": 17.8,
+          "fpsAverage": 165,
+          "frameMs": {
+            "p50": 6.1,
+            "p95": 6.2,
+            "p99": 6.3,
+            "max": 6.4
+          },
+          "missedRefreshes": 0,
+          "over50ms": 0,
+          "over100ms": 0
+        }
+      },
+      {
+        "cycle": 2,
+        "entryMs": 66,
+        "liveRuntimesDuringMatch": 1,
+        "interrupted": null,
+        "frames": {
+          "validIntervals": 2918,
+          "invalidFrames": 0,
+          "validSeconds": 17.7,
+          "fpsAverage": 165,
+          "frameMs": {
+            "p50": 6.1,
+            "p95": 6.2,
+            "p99": 6.3,
+            "max": 6.4
+          },
+          "missedRefreshes": 0,
+          "over50ms": 0,
+          "over100ms": 0
+        }
+      },
+      {
+        "cycle": 3,
+        "entryMs": 62,
+        "liveRuntimesDuringMatch": 1,
+        "interrupted": null,
+        "frames": {
+          "validIntervals": 2918,
+          "invalidFrames": 0,
+          "validSeconds": 17.7,
+          "fpsAverage": 165,
+          "frameMs": {
+            "p50": 6.1,
+            "p95": 6.2,
+            "p99": 6.3,
+            "max": 6.7
+          },
+          "missedRefreshes": 0,
+          "over50ms": 0,
+          "over100ms": 0
+        }
+      },
+      {
+        "cycle": 4,
+        "entryMs": 65,
+        "liveRuntimesDuringMatch": 1,
+        "interrupted": null,
+        "frames": {
+          "validIntervals": 2921,
+          "invalidFrames": 0,
+          "validSeconds": 17.7,
+          "fpsAverage": 165,
+          "frameMs": {
+            "p50": 6.1,
+            "p95": 6.2,
+            "p99": 6.3,
+            "max": 6.4
+          },
+          "missedRefreshes": 0,
+          "over50ms": 0,
+          "over100ms": 0
+        }
+      },
+      {
+        "cycle": 5,
+        "entryMs": 59,
+        "liveRuntimesDuringMatch": 1,
+        "interrupted": null,
+        "frames": {
+          "validIntervals": 2919,
+          "invalidFrames": 0,
+          "validSeconds": 17.7,
+          "fpsAverage": 165,
+          "frameMs": {
+            "p50": 6.1,
+            "p95": 6.2,
+            "p99": 6.3,
+            "max": 6.4
+          },
+          "missedRefreshes": 0,
+          "over50ms": 0,
+          "over100ms": 0
+        }
+      },
+      {
+        "cycle": 6,
+        "entryMs": 58,
+        "liveRuntimesDuringMatch": 1,
+        "interrupted": null,
+        "frames": {
+          "validIntervals": 2919,
+          "invalidFrames": 0,
+          "validSeconds": 17.7,
+          "fpsAverage": 165,
+          "frameMs": {
+            "p50": 6.1,
+            "p95": 6.2,
+            "p99": 6.3,
+            "max": 6.4
+          },
+          "missedRefreshes": 0,
+          "over50ms": 0,
+          "over100ms": 0
+        }
+      }
+    ],
+    "quickCycles": {
+      "before": {
+        "jsHeapUsedMB": 9.39,
+        "jsHeapTotalMB": 10.3,
+        "domNodes": 245,
+        "jsEventListeners": 200,
+        "documents": 1,
+        "canvases": 0
+      },
+      "after": {
+        "jsHeapUsedMB": 10.21,
+        "jsHeapTotalMB": 11.55,
+        "domNodes": 245,
+        "jsEventListeners": 200,
+        "documents": 1,
+        "canvases": 0
+      }
+    },
+    "heapFromCycle2": {
+      "values": [
+        8.65,
+        8.89,
+        9.09,
+        9.32,
+        9.39
+      ],
+      "rangeMB": 0.74,
+      "monotonicIncrease": true
+    },
+    "webglContextWarnings": [],
+    "consoleProblems": [],
+    "abortedRequests": 25
+  }
+}
