@@ -27,7 +27,7 @@ test.describe('match lifecycle', () => {
     expect(problems).toEqual([]);
   });
 
-  test('the timer ends the match; the HUD and the end panel show the result', async ({ page }) => {
+  test('the timer ends the match; the HUD and the Result screen show it', async ({ page }) => {
     await startGame(page, '?scenario=open-sea');
     const hud = page.getByRole('region', { name: 'Match status' });
     await expect(hud).toContainText('02:00');
@@ -43,16 +43,19 @@ test.describe('match lifecycle', () => {
     expect(state.endTick).toBe(DURATION_TICKS);
     await expect(hud).toContainText('00:00');
 
-    const panel = page.getByRole('dialog', { name: 'Battle Complete' });
-    await expect(panel).toBeVisible();
-    await expect(panel.getByTestId('end-score')).toHaveText('0');
-    await expect(panel.getByTestId('end-time')).toHaveText('02:00');
-    await expect(panel).toContainText('Time up');
-    await expect(panel.getByRole('button', { name: 'Play Again' })).toBeFocused();
+    // After a moment the Result screen replaces the finished match.
+    await expect(page).toHaveURL(/\/result\?/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Battle Complete' })).toBeVisible();
+    await expect(page.getByTestId('result-score')).toHaveText('0');
+    await expect(page.getByTestId('result-time')).toHaveText('02:00');
+    await expect(page.getByTestId('result-reason')).toHaveText('Time up');
+    await expect(page.getByRole('button', { name: 'Play Again' })).toBeFocused();
+    await expect(page.locator('canvas')).toHaveCount(0);
   });
 
   test('an ended match no longer reacts to input', async ({ page }) => {
-    await startGame(page, '?scenario=open-sea');
+    // Keep the ended match on screen instead of moving on to the Result screen.
+    await startGame(page, '?scenario=open-sea&resultDelay=600000');
     await step(page, DURATION_TICKS);
     const ended = await getState(page);
 
@@ -75,10 +78,9 @@ test.describe('match lifecycle', () => {
     expect(state.player.hp).toBe(0);
     expect(state.render!.shipStages[0]).toBe(3); // wreck
     expect(state.render!.healthBars).toBe(0); // the sunk ship's bar is hidden
-    const panel = page.getByRole('dialog', { name: 'Your Ship Sank' });
-    await expect(panel).toBeVisible();
-    await expect(panel).toContainText('Ship sunk');
     await expect(page.getByRole('region', { name: 'Match status' })).toContainText(`0 / ${MAX_HP}`);
+    await expect(page.getByRole('heading', { level: 1, name: 'Your Ship Sank' })).toBeVisible();
+    await expect(page.getByTestId('result-reason')).toHaveText('Ship sunk');
   });
 
   test('the HUD is only updated when a shown value changes, not every frame', async ({ page }) => {
@@ -123,11 +125,10 @@ test.describe('match lifecycle', () => {
     expect(ended.endReason).toBe('death');
     expect(ended.liveRuntimes).toBe(1);
 
-    // Game keys are released at the end: Space (the front gun during play) now activates the
-    // focused button instead of being captured by the game.
+    // On the Result screen, Space (the front gun during play) activates the focused button.
     await expect(page.getByRole('button', { name: 'Play Again' })).toBeFocused();
     await page.keyboard.press('Space');
-    await expect(page.getByTestId('end-panel')).toHaveCount(0);
+    await expect(page).toHaveURL(/\/play\?/);
     await expect(page.locator('canvas')).toHaveCount(1);
     await page.waitForFunction(() => window.__pirateTest?.getState().phase === 'running');
 

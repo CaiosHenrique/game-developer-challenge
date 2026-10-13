@@ -1,31 +1,39 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type KeyboardEvent as ReactKeyboardEvent,
-} from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import {
   getAssetProgress,
   loadGameAssets,
   subscribeAssetProgress,
   type GameTextures,
 } from '../game/assets.ts';
-import { DEFAULT_GAME_CONFIG } from '../game/config.ts';
 import { GameRuntime } from '../game/GameRuntime.ts';
 import { HudStore, type MatchResult, type PauseReason } from '../game/hudStore.ts';
-import { testManualClockFromQuery, testOptionsFromQuery } from '../game/scenarios.ts';
-import { formatClock } from './format.ts';
+import {
+  testManualClockFromQuery,
+  testOptionsFromQuery,
+  testResultDelayFromQuery,
+} from '../game/scenarios.ts';
+import { Dialog } from './Dialog.tsx';
 import { Hud } from './Hud.tsx';
+import type { MatchRequest } from './router.ts';
+
+/** Time the ended match stays on screen (explosion, wreck) before the Result screen. */
+export const RESULT_DELAY_MS = 1000;
 
 type LoadState =
   { status: 'loading' } | { status: 'error' } | { status: 'ready'; textures: GameTextures };
 
-export function GameScreen({ onExit }: { onExit: () => void }) {
+type MatchCallbacks = {
+  onExit: () => void;
+  /** Called when the match ends (the parent processes each match id once). */
+  onMatchComplete: (match: MatchRequest, result: MatchResult) => void;
+  /** Called once the end of the match has been shown. */
+  onShowResult: () => void;
+};
+
+/** One requested match: asset loading, then the game. Mounted once per match id. */
+export function GameScreen({ match, ...callbacks }: { match: MatchRequest } & MatchCallbacks) {
   const [loadState, setLoadState] = useState<LoadState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
-  /** A new key mounts a new match: new runtime, simulation, seed and config snapshot. */
-  const [matchKey, setMatchKey] = useState(0);
   const progress = useSyncExternalStore(subscribeAssetProgress, getAssetProgress);
 
   useEffect(() => {
@@ -47,15 +55,10 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
   return (
     <div className="game-screen">
       {loadState.status === 'ready' ? (
-        <Match
-          key={matchKey}
-          textures={loadState.textures}
-          onExit={onExit}
-          onPlayAgain={() => setMatchKey((value) => value + 1)}
-        />
+        <Match textures={loadState.textures} match={match} {...callbacks} />
       ) : (
         <div className="game-toolbar">
-          <button type="button" onClick={onExit}>
+          <button type="button" onClick={callbacks.onExit}>
             Main Menu
           </button>
         </div>
@@ -82,24 +85,22 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
 
 function Match({
   textures,
+  match,
   onExit,
-  onPlayAgain,
-}: {
-  textures: GameTextures;
-  onExit: () => void;
-  onPlayAgain: () => void;
-}) {
+  onMatchComplete,
+  onShowResult,
+}: { textures: GameTextures; match: MatchRequest } & MatchCallbacks) {
   const hostRef = useRef<HTMLDivElement>(null);
   const runtimeRef = useRef<GameRuntime | null>(null);
   const [failed, setFailed] = useState(false);
-  const [store] = useState(() => new HudStore(GameRuntime.initialHud(DEFAULT_GAME_CONFIG)));
+  const [store] = useState(() => new HudStore(GameRuntime.initialHud(match.config)));
   const hud = useSyncExternalStore(store.subscribe, store.getSnapshot);
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
     const debugColliders = new URLSearchParams(window.location.search).get('debug') === 'colliders';
-    const runtime = new GameRuntime(host, textures, DEFAULT_GAME_CONFIG, store, {
+    const runtime = new GameRuntime(host, textures, match.config, store, {
       debugColliders,
       simulation: testOptionsFromQuery(window.location.search),
       manualClock: testManualClockFromQuery(window.location.search),
@@ -113,7 +114,17 @@ function Match({
       runtime.destroy();
       if (runtimeRef.current === runtime) runtimeRef.current = null;
     };
-  }, [textures, store]);
+  }, [textures, store, match.config]);
+
+  // The match ended: hand the result over once, then show it after a short moment. The
+  // timer is cancelled if the match is left (or unmounted) before it fires.
+  useEffect(() => {
+    if (!hud.result) return;
+    onMatchComplete(match, hud.result);
+    const delay = testResultDelayFromQuery(window.location.search) ?? RESULT_DELAY_MS;
+    const timer = window.setTimeout(onShowResult, delay);
+    return () => window.clearTimeout(timer);
+  }, [hud.result, match, onMatchComplete, onShowResult]);
 
   return (
     <>
@@ -123,9 +134,7 @@ function Match({
       <div className="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
         {hud.announcement}
       </div>
-      {hud.result ? (
-        <EndPanel result={hud.result} onPlayAgain={onPlayAgain} onMainMenu={onExit} />
-      ) : hud.pauseReason ? (
+      {hud.result ? null : hud.pauseReason ? (
         <PauseDialog
           reason={hud.pauseReason}
           onResume={() => runtimeRef.current?.resume()}
@@ -147,70 +156,11 @@ function Match({
   );
 }
 
-/** Provisional end-of-match panel (the full Result screen comes with the menus). */
-function EndPanel({
-  result,
-  onPlayAgain,
-  onMainMenu,
-}: {
-  result: MatchResult;
-  onPlayAgain: () => void;
-  onMainMenu: () => void;
-}) {
-  const playAgainRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => playAgainRef.current?.focus(), []);
-
-  return (
-    <div className="end-backdrop">
-      <section
-        className="end-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="end-title"
-        data-testid="end-panel"
-      >
-        <h2 id="end-title">{result.reason === 'time' ? 'Battle Complete' : 'Your Ship Sank'}</h2>
-        <p className="end-score" data-testid="end-score">
-          {result.score}
-        </p>
-        <p className="end-details">
-          Points · <span data-testid="end-time">{formatClock(result.timePlayedSeconds)}</span> ·{' '}
-          {result.reason === 'time' ? 'Time up' : 'Ship sunk'}
-        </p>
-        <div className="end-actions">
-          <button ref={playAgainRef} type="button" onClick={onPlayAgain}>
-            Play Again
-          </button>
-          <button type="button" onClick={onMainMenu}>
-            Main Menu
-          </button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
 const PAUSE_MESSAGES: Record<PauseReason, string> = {
   manual: 'The battle is on hold.',
   blur: 'Paused because the game window lost focus.',
   hidden: 'Paused because the page was hidden.',
 };
-
-/** Keeps Tab and Shift+Tab within the dialog's buttons. */
-function trapFocus(event: ReactKeyboardEvent<HTMLElement>): void {
-  if (event.key !== 'Tab') return;
-  const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('button')];
-  const first = buttons[0];
-  const last = buttons[buttons.length - 1];
-  if (!first || !last) return;
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault();
-    first.focus();
-  }
-}
 
 /** Pause dialog: only a player action (Resume, P or Esc) resumes the match. */
 function PauseDialog({
@@ -222,33 +172,21 @@ function PauseDialog({
   onResume: () => void;
   onMainMenu: () => void;
 }) {
-  const resumeRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => resumeRef.current?.focus(), []);
-
   return (
-    <div className="end-backdrop">
-      <section
-        className="end-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="pause-title"
-        aria-describedby="pause-reason"
-        onKeyDown={trapFocus}
-      >
-        <h2 id="pause-title">Paused</h2>
-        <p id="pause-reason" className="end-details">
-          {PAUSE_MESSAGES[reason]}
-        </p>
-        <p className="pause-hint">Press P or Esc to resume.</p>
-        <div className="end-actions">
-          <button ref={resumeRef} type="button" onClick={onResume}>
-            Resume
-          </button>
-          <button type="button" onClick={onMainMenu}>
-            Main Menu
-          </button>
-        </div>
-      </section>
-    </div>
+    <Dialog titleId="pause-title" descriptionId="pause-reason">
+      <h2 id="pause-title">Paused</h2>
+      <p id="pause-reason" className="end-details">
+        {PAUSE_MESSAGES[reason]}
+      </p>
+      <p className="pause-hint">Press P or Esc to resume.</p>
+      <div className="end-actions">
+        <button type="button" onClick={onResume}>
+          Resume
+        </button>
+        <button type="button" onClick={onMainMenu}>
+          Main Menu
+        </button>
+      </div>
+    </Dialog>
   );
 }

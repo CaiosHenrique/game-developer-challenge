@@ -23,13 +23,6 @@ body,
   height: 100%;
 }
 
-.app {
-  display: grid;
-  place-content: center;
-  height: 100%;
-  text-align: center;
-}
-
 .game-screen {
   position: fixed;
   inset: 0;
@@ -239,13 +232,6 @@ body,
 .end-panel h2 {
   margin: 0 0 0.5rem;
   color: #f7d9a2;
-}
-
-.end-score {
-  margin: 0;
-  font-size: 3.5rem;
-  font-weight: 800;
-  color: #f4c56a;
 }
 
 .end-details {

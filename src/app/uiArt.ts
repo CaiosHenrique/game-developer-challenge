@@ -20,6 +20,9 @@ import iconHeart2x from '../../assets/png/retina/ui/hud/icon_heart.png';
 import iconScore2x from '../../assets/png/retina/ui/hud/icon_score.png';
 import iconTime2x from '../../assets/png/retina/ui/hud/icon_time.png';
 
+import titlePirateBattle from '../../assets/png/default/ui/menu/title_pirate_battle.png';
+import titlePirateBattle2x from '../../assets/png/retina/ui/menu/title_pirate_battle.png';
+
 export type Art = { src: string; srcSet: string };
 
 const art = (x1: string, x2: string): Art => ({ src: x1, srcSet: `${x1} 1x, ${x2} 2x` });
@@ -39,3 +42,7 @@ export const HUD_ART = {
 
 /** Player health bar art: 256 x 48 logical pixels, fill area from the ui atlas `fill_rect`. */
 export const HEALTH_BAR = { width: 256, fill: { x: 30, w: 196 } };
+
+export const MENU_ART = {
+  title: art(titlePirateBattle, titlePirateBattle2x),
+};

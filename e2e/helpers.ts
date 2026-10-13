@@ -42,3 +42,21 @@ export async function advance(page: Page, ms: number): Promise<GameStateSnapshot
     return window.__pirateTest!.getState();
   }, ms);
 }
+
+/** Waits for a match started from the menu or the Result screen (manual clock from the URL). */
+export async function waitForMatch(page: Page): Promise<GameStateSnapshot> {
+  await expect(page.locator('[data-testid="game-host"] canvas')).toHaveCount(1);
+  await page.waitForFunction(() => window.__pirateTest?.getState().phase === 'running');
+  return getState(page);
+}
+
+/** Plays out the remaining time of the current match and waits for the Result screen. */
+export async function finishMatch(page: Page): Promise<GameStateSnapshot> {
+  const ended = await page.evaluate(() => {
+    const api = window.__pirateTest!;
+    api.step(api.getState().remainingTicks);
+    return api.getState();
+  });
+  await expect(page).toHaveURL(/\/result\?/);
+  return ended;
+}

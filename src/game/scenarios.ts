@@ -60,6 +60,13 @@ export function testManualClockFromQuery(search: string): boolean {
   return import.meta.env.MODE === 'e2e' && new URLSearchParams(search).get('clock') === 'manual';
 }
 
+/** Test-only: `?resultDelay=<ms>` overrides the pause before the Result screen. */
+export function testResultDelayFromQuery(search: string): number | undefined {
+  if (import.meta.env.MODE !== 'e2e') return undefined;
+  const value = new URLSearchParams(search).get('resultDelay');
+  return value !== null && /^\d+$/.test(value) ? Number(value) : undefined;
+}
+
 /** Test-only match options from the URL: `?scenario=<name>` and/or `?seed=<uint32>`. */
 export function testOptionsFromQuery(search: string): SimulationOptions | undefined {
   if (import.meta.env.MODE !== 'e2e') return undefined;

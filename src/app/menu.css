@@ -1,0 +1,269 @@
+/* Menus: art from the asset pack (panel 9-slice borders from ui_sheet.json: 40/32/40/32). */
+.menu-screen {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem 1rem;
+  background: #1b2a3a url('../../assets/ui_scene_background.png') center / cover no-repeat;
+  overflow-y: auto;
+}
+
+.menu-panel {
+  width: min(30rem, 100%);
+  padding: 1rem 1.25rem 1.5rem;
+  border-style: solid;
+  border-width: 40px 32px;
+  border-image-source: image-set(
+    url('../../assets/png/default/ui/menu/panel_menu.png') 1x,
+    url('../../assets/png/retina/ui/menu/panel_menu.png') 2x
+  );
+  border-image-slice: 40 32 40 32 fill;
+  border-image-width: 40px 32px;
+  color: #f4ead5;
+  text-align: center;
+}
+
+.menu-title {
+  margin: 0;
+}
+
+.menu-title img {
+  width: min(20rem, 100%);
+  height: auto;
+}
+
+.menu-heading {
+  margin: 0 0 0.75rem;
+  color: #f7d9a2;
+  font-size: 1.75rem;
+}
+
+.menu-tagline {
+  margin: 0.25rem 0 1rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+}
+
+.menu-actions {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.menu-button {
+  width: min(15rem, 100%);
+  min-height: 3.6rem;
+  padding: 0 1.5rem;
+  border: 0;
+  background: image-set(
+      url('../../assets/png/default/ui/menu/button_primary_normal.png') 1x,
+      url('../../assets/png/retina/ui/menu/button_primary_normal.png') 2x
+    )
+    center / 100% 100% no-repeat;
+  color: #3b1f08;
+  font: inherit;
+  font-size: 1.2rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.menu-button:hover {
+  background-image: image-set(
+    url('../../assets/png/default/ui/menu/button_primary_hover.png') 1x,
+    url('../../assets/png/retina/ui/menu/button_primary_hover.png') 2x
+  );
+}
+
+.menu-button:active {
+  background-image: image-set(
+    url('../../assets/png/default/ui/menu/button_primary_pressed.png') 1x,
+    url('../../assets/png/retina/ui/menu/button_primary_pressed.png') 2x
+  );
+}
+
+.menu-button:disabled {
+  background-image: image-set(
+    url('../../assets/png/default/ui/menu/button_primary_disabled.png') 1x,
+    url('../../assets/png/retina/ui/menu/button_primary_disabled.png') 2x
+  );
+  color: #5d5246;
+  cursor: not-allowed;
+}
+
+.menu-button-secondary,
+.menu-tab {
+  background-image: image-set(
+    url('../../assets/png/default/ui/menu/button_secondary_normal.png') 1x,
+    url('../../assets/png/retina/ui/menu/button_secondary_normal.png') 2x
+  );
+  color: #f4ead5;
+  font-size: 0.95rem;
+}
+
+.menu-button-secondary:hover,
+.menu-button-secondary:active,
+.menu-tab[aria-selected='true'] {
+  background-image: image-set(
+    url('../../assets/png/default/ui/menu/button_secondary_pressed.png') 1x,
+    url('../../assets/png/retina/ui/menu/button_secondary_pressed.png') 2x
+  );
+}
+
+.menu-button:focus-visible,
+.menu-tab:focus-visible,
+.options-form input:focus-visible {
+  outline: 3px solid #f4c56a;
+  outline-offset: 3px;
+}
+
+.menu-controls {
+  margin: 1rem 0 0.75rem;
+  font-size: 0.85rem;
+}
+
+.menu-controls h2 {
+  margin: 0 0 0.25rem;
+  font-size: 0.95rem;
+  color: #f7d9a2;
+}
+
+.menu-controls dl {
+  display: grid;
+  gap: 0.15rem;
+  margin: 0;
+}
+
+.menu-controls dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.menu-controls dd {
+  margin: 0;
+}
+
+kbd {
+  padding: 0 0.3em;
+  border: 1px solid #b9742f;
+  border-radius: 0.25em;
+  background: #2a3a4d;
+  font: inherit;
+  font-weight: 700;
+}
+
+.menu-tablist {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.menu-tab {
+  min-width: 9rem;
+  min-height: 2.6rem;
+  padding: 0 1rem;
+  border: 0;
+  background-color: transparent;
+  background-position: center;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  font: inherit;
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.menu-tabpanel {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: rgb(0 0 0 / 25%);
+  font-size: 0.9rem;
+}
+
+.menu-tabpanel p {
+  margin: 0;
+}
+
+/* Options */
+.options-form {
+  display: grid;
+  gap: 0.75rem;
+  text-align: left;
+}
+
+.form-field label {
+  display: block;
+  font-weight: 700;
+}
+
+.form-field input {
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.6rem;
+  border: 2px solid #b9742f;
+  border-radius: 0.4rem;
+  background: #f4ead5;
+  color: #1b2a3a;
+  font: inherit;
+  font-size: 1.1rem;
+}
+
+.form-field input[aria-invalid='true'] {
+  border-color: #ff6b5b;
+}
+
+.form-hint,
+.form-error,
+.form-status {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+}
+
+.form-error {
+  min-height: 1.2em;
+  color: #ffb3a8;
+  font-weight: 700;
+}
+
+.form-status {
+  min-height: 1.2em;
+  text-align: center;
+  color: #c8f0b4;
+}
+
+/* Result */
+.result-score {
+  margin: 0;
+  font-size: 3.5rem;
+  font-weight: 800;
+  color: #f4c56a;
+}
+
+.result-details {
+  margin: 0.25rem 0 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.result-status {
+  display: grid;
+  gap: 0.15rem;
+  margin: 0 auto 0.75rem;
+  max-width: 20rem;
+  font-size: 0.9rem;
+}
+
+.result-status > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.result-status dd {
+  margin: 0;
+  font-weight: 700;
+}
