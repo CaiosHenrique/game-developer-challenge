@@ -1,14 +1,18 @@
 # Testing
 
-Pirate Battle has two test suites:
+Pirate Battle has three test suites:
 
-- **Unit tests** (`npm run test:unit`): Node's test runner through `tsx`, for the pure
-  simulation, the API contracts and client, TanStack Query behaviour, the mock API data and
-  scenarios, and local storage. No browser.
-- **End-to-end tests** (`npm run test:e2e`): Playwright, against a production build made with
-  test hooks (`vite build --mode e2e`) and served by `vite preview`, with the real MSW service
-  worker. Playwright builds and starts that server itself (`webServer` in
-  `playwright.config.ts`).
+- **Unit tests** (`npm run test:unit`, 108 tests): Node's test runner through `tsx`, for the
+  pure simulation, the API contracts and client, TanStack Query behaviour, the mock API data
+  and scenarios, and local storage. No browser.
+- **End-to-end tests** (`npm run test:e2e`, 120 tests): Playwright, against a production build
+  made with test hooks (`vite build --mode e2e`) and served by `vite preview` on port 4173,
+  with the real MSW service worker. Playwright builds and starts that server itself
+  (`webServer` in `playwright.config.ts`). It includes the visual regression, accessibility and
+  keyboard focus tests.
+- **Performance and memory** (`npm run perf`): a separate Playwright configuration
+  (`playwright.perf.config.ts`, tests in `e2e/perf/`), never part of `test:e2e`. It measures
+  instead of asserting; method and results are in [perf/README.md](perf/README.md).
 
 Every end-to-end test starts from a fresh browser context (empty storage, no service worker
 state, its own player). The tests fail if the console shows an error or a warning they did
@@ -67,6 +71,8 @@ npx playwright test records           # any file name filter
 npx playwright test -g "out of order" # by test title
 npx playwright test --repeat-each=3   # run each test 3 times (looks for flaky tests)
 npx playwright test --workers=1       # one test at a time (looks for order dependencies)
+npx playwright test a11y focus        # accessibility scans and keyboard focus
+npm run perf                          # performance suite (separate, see perf/README.md)
 ```
 
 `reuseExistingServer` is on outside CI: if something already listens on port 4173 (for example
@@ -141,6 +147,49 @@ To change a baseline on purpose:
 
 Never use `--update-snapshots` to make a failing comparison pass without understanding the
 difference.
+
+## Accessibility
+
+**Automated (`e2e/a11y.spec.ts`, `e2e/a11y.mobile.spec.ts`).** `@axe-core/playwright` runs axe
+with its default rules (WCAG 2.x A and AA, plus best practices) on each state below. Any
+violation fails the test; the full axe results are attached to the test in the HTML report.
+
+| State                                                      | Project |
+| ---------------------------------------------------------- | ------- |
+| Menu: Ranking tab, then Match History, scenario panel open | desktop |
+| Options, then Options with both validation errors          | desktop |
+| Match: HUD and game controls                               | desktop |
+| Pause dialog                                               | desktop |
+| Result: submitted; submission failed; conflict             | desktop |
+| Match with the touch controls                              | mobile  |
+
+axe cannot measure text drawn over images, which is how the HUD shows its values. A separate
+test measures their contrast against the pixels behind the glyphs (`textContrastOverImage` in
+`e2e/a11y.ts`): at least 4.5:1 for the health label, 3:1 for the large bold score and time.
+
+**Keyboard focus (`e2e/focus.spec.ts`).** Options focuses its first field and leaving it with
+Main Menu focuses Options again; the pause dialog focuses Resume, and closing it (Enter, `P`,
+`Esc`) focuses the pause button; the ranking pager, the scenario panel (summary, select, Reset)
+and the Result screen's Retry work by keyboard and show the 3 px focus ring. Other tests cover
+the pause dialog's focus trap and live region (`pause`), the tabs' arrow keys and the Options
+errors being announced (`menu`, `options`).
+
+**Not covered by the tests (manual review only, or not done):**
+
+- No screen reader was used (NVDA, JAWS, Narrator, VoiceOver, TalkBack): what a screen reader
+  actually announces is not verified. The live regions and roles were checked by reading the
+  code and by the axe scans only.
+- The arena is a canvas with no accessible content: ship and projectile positions are not
+  available to assistive technology, so the game cannot be played without sight. The HUD, the
+  announcements (score, time warnings, low health, pause, match end) and every screen outside
+  the match are accessible.
+- The match screen has no heading; its only heading is the pause dialog's, while it is open.
+- In the ranking and history, the pager's status (`role="status"`) changes twice when a page is
+  changed (`Loading page N…`, then `Page N of M`), so both may be announced.
+- No check of zoom and reflow at 200 % or 400 %, of Windows high-contrast mode, or of
+  `prefers-reduced-motion` (the game does not read it).
+- Colour is not the only cue for health (the HUD also shows the number), but the health bars
+  above ships are only visual.
 
 ## No continuous integration
 

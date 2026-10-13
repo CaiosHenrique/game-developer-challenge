@@ -36,8 +36,9 @@ function Redirect({ to }: { to: Path }) {
  * - Leaving `/play` before the end (Main Menu, Back, reload) destroys the match: nothing saved.
  * - When a match ends, its result is processed once per match id: `finishedAt` is set here,
  *   the result is stored, and kept for this session even if storage fails.
- * - Its record is queued for the online ranking before it is sent; queued records are sent
- *   again when the app opens, when the browser comes back online and on Retry.
+ * - Its record is queued for the online ranking before it is sent, and it is sent together
+ *   with every record still queued from earlier matches. Queued records are also sent again
+ *   when the app opens, when the browser comes back online and on Retry.
  */
 export function App({ mockApi }: { mockApi: MockApiStatusStore }) {
   const route = useRoute();

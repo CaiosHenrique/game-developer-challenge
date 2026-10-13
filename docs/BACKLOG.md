@@ -31,3 +31,26 @@ should be reviewed.
   the screen does not act after a pause, a resume or the end of the match). A finer test
   would need to expose the internal input state only for tests, with no proportional
   benefit. The input code is unchanged.
+
+## M6 — Accessibility, performance and documentation
+
+- **Open: memory in a normal browser session.** The automated runs found no leak in the
+  game's resources, and a slow residual heap growth that seems to come from MSW's
+  service-worker messaging and the DevTools instrumentation. That attribution is a hypothesis:
+  it was never checked without the DevTools protocol attached. Procedure in
+  [perf/README.md](perf/README.md#pending-memory-in-a-normal-edge-session). No change to the
+  game or to MSW until it is checked.
+- **Open: isolated stall of unknown cause.** One headed match of the first performance run had
+  15 frames of about 1 s; it never happened again in later runs and its cause was not
+  determined ([perf/README.md](perf/README.md)). If it shows up again, record it with long
+  animation frame attribution (already on in `e2e/perf/`) before drawing conclusions.
+- **Open (accessibility, not verified with a screen reader):** the pager's status changes
+  twice per page change (`Loading page N…`, then `Page N of M`) and may be announced twice; the
+  match screen has no heading. Both need a real screen reader to decide whether to change
+  anything. No screen reader was used in this project so far.
+- **Closed before M7: the comment now documents submission of the pending queue at the end of
+  every match.** The comment at the top of `App` (`src/App.tsx`) omitted that the end of every
+  match also sends the whole queue (`submitAll` in `handleMatchComplete`); only the comment
+  changed, not the code.
+- **Open (M7):** test and profiling reports are not versioned yet (only the performance JSON in
+  `docs/perf/`); the public deployment is not documented or checked yet; no CI workflow.
