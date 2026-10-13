@@ -260,14 +260,14 @@ This is the only public URL. The per-deployment URLs Vercel creates (`…-caio-t
 are protected by Vercel's login and are not meant to be shared. Every push to `main` deploys
 again, so the production URL may serve a commit newer than the one verified below.
 
-**Last verified on 13 October 2026, commit `041e795`:**
+**Last verified on 13 October 2026, commit `742262c`:**
 
-- **Same files as the commit:** the 69 files served by the production URL (`index.html`, the
-  mock service worker, everything under `/assets/` and `/game/`) were byte-identical to a
-  `npm run build` of `041e795` made from a clean clone. The application code is the same from
-  `119a03d` to `041e795` (those commits differ only in tests, documentation and a code
-  comment), so the files alone do not single out `041e795`.
-- **Deployment record:** GitHub lists Vercel's latest Production deployment for `041e795` as
+- **Same files as the commit:** the 88 files served by the production URL (`index.html`, the
+  mock service worker, everything under `/assets/` and `/game/`, including the 19 sound files)
+  were byte-identical to a `npm run build` of `742262c` made from a clean clone. The page loads
+  the bundle `index-BBtEZnmO.js`, built from the M5 code (sound effects, hit tint, splinters),
+  which no earlier commit contains.
+- **Deployment record:** GitHub lists Vercel's latest Production deployment for `742262c` as
   successful. Which deployment the production domain points to was not checked in the Vercel
   dashboard.
 - **Browser smoke test** on the production URL (Microsoft Edge, fresh isolated contexts; the
@@ -278,6 +278,9 @@ again, so the production URL may serve a commit newer than the one verified belo
     `/play` without a match returns to the menu;
   - a real 60 s match ends (ship sunk), the Result screen shows it saved on the device and
     submitted, and it is still shown after a reload, as is its Match History entry;
+  - sound: no audio context before Play and one, running, after it; the 19 sound files load
+    (HTTP 200); real shots produce a non-silent output signal, and the mute switch in the pause
+    dialog silences it and is saved (measured, not listened to);
   - no console error or warning, page error or failed request;
-  - caching: `/` `max-age=0, must-revalidate`, `/mockServiceWorker.js` `no-cache`,
-    `/assets/*` immutable; `/api/*` without the worker answers 404, not the page.
+  - caching: `/` and the sound files `max-age=0, must-revalidate`, `/mockServiceWorker.js`
+    `no-cache`, `/assets/*` immutable; `/api/*` without the worker answers 404, not the page.
