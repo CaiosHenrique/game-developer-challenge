@@ -192,6 +192,11 @@ export class GameRuntime {
         this.runSteps(Math.round((ms / 1000) * this.config.simulation.stepsPerSecond)),
     });
     this.playSounds([], null, this.hud.getSnapshot()); // the match starts
+
+    // The page may have been hidden or lost focus while the match was loading, before these
+    // listeners existed: no event will come for that, so the current state decides.
+    if (document.visibilityState === 'hidden') this.pause('hidden');
+    else if (!document.hasFocus()) this.pause('blur');
   }
 
   destroy(): void {

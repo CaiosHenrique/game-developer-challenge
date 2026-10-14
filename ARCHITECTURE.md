@@ -262,6 +262,9 @@ is ready. The shooter's gun is a front gun: 8 damage, speed 360, range 420, ever
   action is held while any source holds it.
 - **Pause**: P or Esc (toggle), the HUD pause button, and automatically when the window loses
   focus (`blur`), the page is hidden (`visibilitychange`) or a touch device is held in portrait.
+  A match that becomes ready while the page is already hidden or without focus (e.g. the
+  player switched away while its assets loaded, before those listeners existed) starts paused:
+  `start()` checks `document.visibilityState` and `document.hasFocus()` once at the end.
   While paused no step runs (real or manual clock), effects stand still, and input is released.
   Only a player action resumes (Resume, P or Esc): held keys must be pressed again, the
   accumulator is reset and the first frame's delta is dropped, so no paused time is simulated.

@@ -117,6 +117,65 @@ test.describe('pause', () => {
     expect((await step(page, 5)).tick).toBe(start.tick + 15);
   });
 
+  test('a match that becomes ready while the window has no focus starts paused', async ({
+    page,
+  }) => {
+    // The window lost focus before the match existed (e.g. while its assets loaded): no
+    // `blur` event will reach it.
+    await page.addInitScript(() => {
+      Document.prototype.hasFocus = () => false;
+    });
+    await page.goto('/?scenario=open-sea'); // real clock
+    await page.getByRole('button', { name: 'Play' }).click();
+    await expect(page.locator('[data-testid="game-host"] canvas')).toHaveCount(1);
+    await page.waitForFunction(() => window.__pirateTest !== undefined);
+
+    await expect(pauseDialog(page)).toContainText('lost focus');
+    await page.waitForTimeout(500);
+    let state = await step(page, 60); // the test clock is frozen too
+    expect(state.phase).toBe('running');
+    expect(state.liveRuntimes).toBe(1);
+    expect(state.pauseReason).toBe('blur');
+    expect(state.tick).toBe(0);
+
+    // A started match, held by the pause: resuming lets the real clock move it.
+    await page.getByRole('button', { name: 'Resume' }).click();
+    await expect(pauseDialog(page)).toHaveCount(0);
+    await page.waitForFunction(() => window.__pirateTest!.getState().tick > 0);
+    state = await getState(page);
+    expect(state.pauseReason).toBeNull();
+  });
+
+  test('a match that becomes ready while the page is hidden starts paused', async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        get: () => 'hidden',
+      });
+    });
+    await page.goto('/?scenario=open-sea'); // real clock
+    await page.getByRole('button', { name: 'Play' }).click();
+    await expect(page.locator('[data-testid="game-host"] canvas')).toHaveCount(1);
+    await page.waitForFunction(() => window.__pirateTest !== undefined);
+
+    await expect(pauseDialog(page)).toContainText('page was hidden');
+    await page.waitForTimeout(500);
+    let state = await step(page, 60);
+    expect(state.phase).toBe('running');
+    expect(state.liveRuntimes).toBe(1);
+    expect(state.pauseReason).toBe('hidden');
+    expect(state.tick).toBe(0);
+
+    // Visible again: still paused until the player resumes.
+    await setVisibility(page, 'visible');
+    expect((await step(page, 60)).tick).toBe(0);
+    await page.keyboard.press('Escape');
+    await expect(pauseDialog(page)).toHaveCount(0);
+    await page.waitForFunction(() => window.__pirateTest!.getState().tick > 0);
+    state = await getState(page);
+    expect(state.pauseReason).toBeNull();
+  });
+
   test('the pause button opens a dialog that keeps keyboard focus', async ({ page }) => {
     await startGame(page, '?scenario=open-sea');
     await page.getByRole('button', { name: 'Pause' }).click();

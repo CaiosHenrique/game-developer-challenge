@@ -96,7 +96,8 @@ Hold several keys or buttons at once to sail, turn and fire together. The ship o
 forward; releasing forward lets it slow down.
 
 The match also pauses by itself when the window loses focus, the page is hidden, or a touch
-device is turned to portrait. It only resumes when you choose to (Resume, `P` or `Esc`).
+device is turned to portrait, and starts paused if one of these is already the case when it
+finishes loading. It only resumes when you choose to (Resume, `P` or `Esc`).
 Leaving the match (Main Menu, Back, reload) ends it without recording anything.
 
 ### Sound effects

@@ -5,7 +5,7 @@ Pirate Battle has three test suites:
 - **Unit tests** (`npm run test:unit`, 133 tests): Node's test runner through `tsx`, for the
   pure simulation, the API contracts and client, TanStack Query behaviour, the mock API data
   and scenarios, and local storage. No browser.
-- **End-to-end tests** (`npm run test:e2e`, 142 tests): Playwright, against a production build
+- **End-to-end tests** (`npm run test:e2e`, 144 tests): Playwright, against a production build
   made with test hooks (`vite build --mode e2e`) and served by `vite preview` on port 4173,
   with the real MSW service worker. Playwright builds and starts that server itself
   (`webServer` in `playwright.config.ts`). It includes the visual regression, accessibility and
@@ -28,7 +28,7 @@ another Chromium build where it is allowed.
 
 | Project            | Device                                                            | Runs                                                    |
 | ------------------ | ----------------------------------------------------------------- | ------------------------------------------------------- |
-| `chromium-desktop` | Desktop Chrome profile, 1280 × 720                                | every `*.spec.ts` except `*.mobile.spec.ts` (123 tests) |
+| `chromium-desktop` | Desktop Chrome profile, 1280 × 720                                | every `*.spec.ts` except `*.mobile.spec.ts` (125 tests) |
 | `chromium-mobile`  | Pixel 7 in landscape: 863 × 360, touch, coarse pointer, DPR 2.625 | only `*.mobile.spec.ts` (19 tests)                      |
 
 The mobile project covers what differs on a phone: touch controls (several fingers, cancel,
@@ -47,7 +47,7 @@ code on both, and are covered on desktop.
 | 4   | Front and side guns, damage, cooldown, score without duplication                                | `weapons` (ball counts, exact cooldowns, range, islands, arena), `enemies` (exact damage per hit, one point per kill)                                                                      | `touch.mobile` (guns by touch, with sailing)                                             |
 | 5   | Chaser and Shooter behaviour, spawn interval                                                    | `enemies`, `spawner` (cadence, distance from the player, same seed same match)                                                                                                             | —                                                                                        |
 | 6   | End by time and by death, frozen simulation, clean restart                                      | `match`                                                                                                                                                                                    | `flows.mobile` (end and Play Again)                                                      |
-| 7   | Pause, focus loss, resume without the clock moving                                              | `pause` (P/Esc, blur, hidden page, no catch-up, dialog focus, announcements)                                                                                                               | `orientation.mobile`, `touch.mobile` (held touch through a pause)                        |
+| 7   | Pause, focus loss, resume without the clock moving                                              | `pause` (P/Esc, blur, hidden page, starting paused without focus or hidden, no catch-up, dialog focus, announcements)                                                                      | `orientation.mobile`, `touch.mobile` (held touch through a pause)                        |
 | 8   | Result screen and persistence after refresh                                                     | `result` (stored once, reload, Back/Forward, storage unavailable)                                                                                                                          | `flows.mobile`                                                                           |
 | 9   | Abandoning a match, repeated navigation, touch controls                                         | `result`, `game-lifecycle` (one canvas after repeated navigation)                                                                                                                          | `touch.mobile` (all touch controls), `flows.mobile`                                      |
 | 10  | Ranking and Match History: pages, loading, empty, error                                         | `records` (stable order over every page, loading, empty, 4xx without retry, 5xx and network with retries, refresh on showing a tab, failed page never traps the player), `scenarios`       | `records.mobile` (tabs and pages by touch)                                               |
