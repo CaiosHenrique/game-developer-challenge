@@ -80,6 +80,8 @@ the frames.
   effects in development. `GameRuntime.start()` awaits `app.init()`; `destroy()` may run before
   it resolves. In that case `destroy()` only marks the runtime as disposed, and `start()`
   destroys the application as soon as `init()` resolves, before adding a canvas or listeners.
+  The `chromium-strict` Playwright project runs this for real, on a development build (see
+  [docs/TESTING.md](docs/TESTING.md#react-strict-mode)).
 - **Resize.** A `ResizeObserver` on the host resizes the renderer and letterboxes the fixed
   1600 × 900 world: the stage is scaled uniformly and centred. Game rules never depend on the
   screen size. The resolution is the device pixel ratio, capped at 2.
@@ -106,6 +108,10 @@ Textures are **not** destroyed: `loadGameAssets()` loads the four runtime assets
 (`/game/ships.json`, `/game/tiles.json`, `/game/ui.json`, `/game/water@2x.png`) and every match
 shares them. A failed load is not cached, so Retry loads again; a spritesheet missing a required
 frame is unloaded and fails the load instead of drawing empty sprites.
+
+If PixiJS cannot initialize (no WebGL, WebGPU or 2D canvas), the game screen says the game could
+not start; only the runtime still in use reports it, so a runtime already replaced (Strict
+Mode's first mount) or left never does.
 
 `GameRuntime.liveInstances` counts initialized, not yet destroyed runtimes. The e2e suite
 (`game-lifecycle`, `match`, `result`) checks that repeated navigation and Play Again leave one
@@ -441,11 +447,12 @@ and server-side validation of results (the client is trusted here).
 
 ## Builds and test instrumentation
 
-| Build                                         | Used by                            | Differences                                                                                                                                                             |
-| --------------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run build` (`vite build`)                | Production, `npm run preview`      | Minified, no test hooks. MSW runs.                                                                                                                                      |
-| `npm run build:e2e` (`vite build --mode e2e`) | `npm run test:e2e`, `npm run perf` | Same minified build plus `window.__pirateTest`, `window.__pirateMocks` and the e2e-only URL parameters (`?scenario`, `?seed`, `?clock`, `?resultDelay`, `?apiTimeout`). |
-| `npm run dev` (Vite dev server)               | Development                        | Unminified, React development mode (Strict Mode double effects). No test hooks.                                                                                         |
+| Build                                                | Used by                              | Differences                                                                                                                                                                                                                                                     |
+| ---------------------------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run build` (`vite build`)                       | Production, `npm run preview`        | Minified, no test hooks. MSW runs.                                                                                                                                                                                                                              |
+| `npm run build:e2e` (`vite build --mode e2e`)        | `npm run test:e2e`, `npm run perf`   | Same minified build plus the test hooks — `window.__pirateTest` (during a match), `window.__pirateLifecycle`, `window.__pirateMocks`, `window.__pirateAudio` — and the e2e-only URL parameters (`?scenario`, `?seed`, `?clock`, `?resultDelay`, `?apiTimeout`). |
+| `npm run build:e2e:dev` (`scripts/build-e2e-dev.ts`) | `chromium-strict` Playwright project | The same e2e build and test hooks, with React's development build (`NODE_ENV=development`), so `<StrictMode>` really double-mounts effects; output `dist-e2e-dev/`.                                                                                             |
+| `npm run dev` (Vite dev server)                      | Development                          | Unminified, React development mode (Strict Mode double effects). No test hooks.                                                                                                                                                                                 |
 
 The test code is gated by `import.meta.env.MODE === 'e2e'` and removed from other builds by
 the bundler. The production bundle contains no test hooks, no performance instrumentation

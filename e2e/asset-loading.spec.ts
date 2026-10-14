@@ -61,3 +61,15 @@ test('a spritesheet missing a required island frame fails the load instead of re
   await expect(page.locator('[data-testid="game-host"] canvas')).toHaveCount(1);
   expect(tileSheetRequests).toBe(2);
 });
+
+test('after a failed load, Main Menu takes a real click back to the menu', async ({ page }) => {
+  await page.route('**/game/ships.png', (route) => route.abort('failed'));
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Play' }).click();
+  await expect(page.getByRole('alert')).toContainText('Failed to load the game assets');
+
+  // A mouse click (Playwright checks that the button itself receives it, not a layer above).
+  await page.getByRole('button', { name: 'Main Menu' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Pirate Battle' })).toBeVisible();
+  await expect(page.locator('canvas')).toHaveCount(0);
+});

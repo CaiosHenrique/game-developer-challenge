@@ -54,17 +54,21 @@ The tests read a few optional ones:
 | `npm run lint`            | ESLint                                                                                        |
 | `npm run format`          | Prettier, rewrites files                                                                      |
 | `npm run format:check`    | Prettier, check only                                                                          |
-| `npm run assets`          | Generate `public/game/` from `assets/` (runs before `dev`, `build` and `build:e2e`)           |
+| `npm run assets`          | Generate `public/game/` from `assets/` (before `dev`, `build`, `build:e2e`, `build:e2e:dev`)  |
 | `npm run build:e2e`       | Production build with the test hooks (`vite build --mode e2e`), used by the browser tests     |
+| `npm run build:e2e:dev`   | The same with React's development build (Strict Mode double effects), in `dist-e2e-dev/`      |
 | `npm run test:unit`       | Unit tests (Node test runner through `tsx`; no browser)                                       |
-| `npm run test:e2e`        | Build with test hooks, serve it on port 4173 and run Playwright (desktop and mobile projects) |
+| `npm run test:e2e`        | Build and serve both test apps (4173, 4175); run Playwright: desktop, mobile, chromium-strict |
 | `npm run test:e2e:report` | Open the last Playwright HTML report                                                          |
 | `npm run perf`            | Performance and memory suite (separate config, port 4174, about 20 minutes)                   |
 | `npm run balance`         | Headless balance report over seeded matches (`npm run balance -- 200` for 200 seeds)          |
 
-Ports are fixed (`strictPort`): if 5173, 4173 or 4174 is taken, the command fails instead of
-picking another port. `npm run test:e2e` reuses a server already listening on 4173 (outside CI):
-stop any `npm run preview` first, or the tests run against that older build.
+Ports are fixed (`strictPort`): if 5173, 4173, 4174 or 4175 is taken, the command fails instead
+of picking another port. Outside CI, `npm run test:e2e` reuses a server already listening on
+4173 or 4175 instead of building and starting its own: stop any `npm run preview` (4173) or
+leftover `vite preview --outDir dist-e2e-dev` (4175) first, or the tests run against that older
+build. With `CI` set, it always builds and starts both. `npm run perf` never reuses a server: it
+always starts its own on 4174.
 
 ## How to play
 
@@ -197,7 +201,7 @@ from the menu: failed asset loading (error and Retry on the game screen), unavai
 
 ```bash
 npm run test:unit      # pure simulation, API contracts and client, mock API, storage
-npm run test:e2e       # Playwright: desktop (1280 × 720) and mobile (Pixel 7 landscape)
+npm run test:e2e       # Playwright: desktop (1280 × 720), mobile (Pixel 7 landscape), Strict Mode
 npm run perf           # performance and memory (separate, long)
 ```
 

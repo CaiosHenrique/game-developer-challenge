@@ -149,7 +149,9 @@ function Match({
       })
       .catch(() => {
         runtime.destroy();
-        setFailed(true);
+        // Only the runtime still in use reports a failure: one already replaced (React
+        // Strict Mode's first mount) or left (the match was exited) has nothing to show.
+        if (runtimeRef.current === runtime) setFailed(true);
       });
     return () => {
       runtime.destroy();

@@ -48,6 +48,12 @@ body,
   place-content: center;
   gap: 0.75rem;
   text-align: center;
+  /* It covers the screen to centre its text: clicks pass through to the Main Menu button. */
+  pointer-events: none;
+}
+
+.game-message button {
+  pointer-events: auto;
 }
 
 /* Top centre: the bottom corners belong to the touch controls, the top corners to the HUD. */

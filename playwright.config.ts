@@ -1,6 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const PORT = 4173;
+/** Development build of the e2e app (React Strict Mode really double-mounts there). */
+const STRICT_PORT = 4175;
 
 // Windows Smart App Control blocks Playwright's unsigned Chromium build, so on Windows the
 // tests run on the installed (signed) Microsoft Edge, which uses the same Chromium engine.
@@ -28,7 +30,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium-desktop',
-      testIgnore: /\.mobile\.spec\.ts$/,
+      testIgnore: [/\.mobile\.spec\.ts$/, /\.strict\.spec\.ts$/],
       use: { ...devices['Desktop Chrome'], channel, viewport: { width: 1280, height: 720 } },
     },
     {
@@ -37,12 +39,34 @@ export default defineConfig({
       testMatch: /\.mobile\.spec\.ts$/,
       use: { ...devices['Pixel 7 landscape'], channel },
     },
+    {
+      // React's development build, where <StrictMode> mounts, unmounts and remounts every
+      // effect: the production build used by the other projects never does.
+      name: 'chromium-strict',
+      testMatch: /\.strict\.spec\.ts$/,
+      use: {
+        ...devices['Desktop Chrome'],
+        channel,
+        viewport: { width: 1280, height: 720 },
+        baseURL: `http://localhost:${STRICT_PORT}`,
+      },
+    },
   ],
-  // Tests run against a production build with test hooks (--mode e2e) and the real MSW worker.
-  webServer: {
-    command: 'npm run build:e2e && npm run preview',
-    url: `http://localhost:${PORT}`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  // Tests run against a production build with test hooks (--mode e2e) and the real MSW worker;
+  // the chromium-strict project against a development build of the same app (dist-e2e-dev/).
+  // Playwright starts the servers one after the other, so the two builds never overlap.
+  webServer: [
+    {
+      command: 'npm run build:e2e && npm run preview',
+      url: `http://localhost:${PORT}`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      command: `npm run build:e2e:dev && npx vite preview --outDir dist-e2e-dev --port ${STRICT_PORT} --strictPort`,
+      url: `http://localhost:${STRICT_PORT}`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+  ],
 });

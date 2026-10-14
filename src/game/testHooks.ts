@@ -52,13 +52,56 @@ export type PirateTestApi = {
   advance(ms: number): void;
 };
 
+/**
+ * What happened to the game runtimes of this page, counted for the tests (e2e build only).
+ * Under React Strict Mode (development builds) each match mounts twice: the first runtime is
+ * destroyed while PixiJS is still initializing (`disposedBeforeInit`).
+ */
+export type RuntimeLifecycle = {
+  constructed: number;
+  /** Runtimes whose PixiJS application initialized and whose match started. */
+  initialized: number;
+  /** Runtimes destroyed before their initialization finished; their app is torn down then. */
+  disposedBeforeInit: number;
+  /** Runtimes whose PixiJS application could not initialize. */
+  failed: number;
+  /** Initialized runtimes destroyed. */
+  destroyed: number;
+  /** Initialized runtimes not destroyed yet. */
+  live: number;
+};
+
+export type RuntimeLifecycleEvent = Exclude<keyof RuntimeLifecycle, 'live'>;
+
 declare global {
   interface Window {
     __pirateTest?: PirateTestApi;
+    /** Kept for the whole page, unlike `__pirateTest`, which only exists during a match. */
+    __pirateLifecycle?: { get(): RuntimeLifecycle };
   }
 }
 
 export const TEST_HOOKS_ENABLED = import.meta.env.MODE === 'e2e';
+
+const lifecycle: Record<RuntimeLifecycleEvent, number> = {
+  constructed: 0,
+  initialized: 0,
+  disposedBeforeInit: 0,
+  failed: 0,
+  destroyed: 0,
+};
+
+if (TEST_HOOKS_ENABLED) {
+  window.__pirateLifecycle = {
+    get: () => ({ ...lifecycle, live: lifecycle.initialized - lifecycle.destroyed }),
+  };
+}
+
+/** Counts a runtime lifecycle event (a no-op outside the e2e build). */
+export function noteRuntime(event: RuntimeLifecycleEvent): void {
+  if (!TEST_HOOKS_ENABLED) return;
+  lifecycle[event] += 1;
+}
 
 export function installTestHooks(api: PirateTestApi): () => void {
   if (!TEST_HOOKS_ENABLED) return () => {};

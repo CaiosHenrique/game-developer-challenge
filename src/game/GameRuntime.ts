@@ -17,7 +17,7 @@ import {
   type SimulationOptions,
 } from './sim/simulation.ts';
 import { PLAYER_ID } from './sim/weapons.ts';
-import { installTestHooks, type GameStateSnapshot } from './testHooks.ts';
+import { installTestHooks, noteRuntime, type GameStateSnapshot } from './testHooks.ts';
 
 export type GameRuntimeOptions = {
   /** Draws collision shapes on top of the scene (`?debug=colliders`). */
@@ -100,6 +100,7 @@ export class GameRuntime {
     const seed = options.simulation?.seed ?? crypto.getRandomValues(new Uint32Array(1))[0]!;
     this.simulation = new Simulation(this.config, { ...options.simulation, seed });
     this.hud.offer(this.hudState());
+    noteRuntime('constructed');
   }
 
   /** Initial HUD state for a match played with `config`, before the runtime exists. */
@@ -145,22 +146,29 @@ export class GameRuntime {
   }
 
   async start(): Promise<void> {
-    await this.app.init({
-      preference: 'webgl',
-      background: '#0d1b2a',
-      antialias: true,
-      autoDensity: true,
-      resolution: Math.min(window.devicePixelRatio || 1, 2),
-      width: Math.max(1, this.host.clientWidth),
-      height: Math.max(1, this.host.clientHeight),
-    });
+    try {
+      await this.app.init({
+        preference: 'webgl',
+        background: '#0d1b2a',
+        antialias: true,
+        autoDensity: true,
+        resolution: Math.min(window.devicePixelRatio || 1, 2),
+        width: Math.max(1, this.host.clientWidth),
+        height: Math.max(1, this.host.clientHeight),
+      });
+    } catch (error) {
+      noteRuntime('failed');
+      throw error;
+    }
 
     if (this.disposed) {
       this.app.destroy(true, { children: true });
+      noteRuntime('disposedBeforeInit');
       return;
     }
     this.initialized = true;
     GameRuntime.liveInstances += 1;
+    noteRuntime('initialized');
 
     this.renderer = new GameRenderer(
       this.textures,
@@ -222,6 +230,7 @@ export class GameRuntime {
     this.app.destroy(true, { children: true });
     this.renderer = null;
     GameRuntime.liveInstances -= 1;
+    noteRuntime('destroyed');
   }
 
   /** Touch buttons hold commands only during an active, unpaused match. */

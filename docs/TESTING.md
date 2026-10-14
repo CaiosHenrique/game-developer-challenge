@@ -5,11 +5,12 @@ Pirate Battle has three test suites:
 - **Unit tests** (`npm run test:unit`, 133 tests): Node's test runner through `tsx`, for the
   pure simulation, the API contracts and client, TanStack Query behaviour, the mock API data
   and scenarios, and local storage. No browser.
-- **End-to-end tests** (`npm run test:e2e`, 144 tests): Playwright, against a production build
+- **End-to-end tests** (`npm run test:e2e`, 151 tests): Playwright, against a production build
   made with test hooks (`vite build --mode e2e`) and served by `vite preview` on port 4173,
   with the real MSW service worker. Playwright builds and starts that server itself
   (`webServer` in `playwright.config.ts`). It includes the visual regression, accessibility and
-  keyboard focus tests.
+  keyboard focus tests. The `chromium-strict` project runs against a second server, on port
+  4175: a development build of the same app (see [React Strict Mode](#react-strict-mode)).
 - **Performance and memory** (`npm run perf`): a separate Playwright configuration
   (`playwright.perf.config.ts`, tests in `e2e/perf/`), never part of `test:e2e`. It measures
   instead of asserting; method and results are in [perf/README.md](perf/README.md).
@@ -26,10 +27,11 @@ Smart App Control blocks Playwright's own Chromium build there. Edge is Chromium
 the Chromium engine the specification asks for. `PW_CHANNEL=chromium` (or `chrome`) selects
 another Chromium build where it is allowed.
 
-| Project            | Device                                                            | Runs                                                    |
-| ------------------ | ----------------------------------------------------------------- | ------------------------------------------------------- |
-| `chromium-desktop` | Desktop Chrome profile, 1280 × 720                                | every `*.spec.ts` except `*.mobile.spec.ts` (125 tests) |
-| `chromium-mobile`  | Pixel 7 in landscape: 863 × 360, touch, coarse pointer, DPR 2.625 | only `*.mobile.spec.ts` (19 tests)                      |
+| Project            | Device                                                            | Runs                                                                           |
+| ------------------ | ----------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `chromium-desktop` | Desktop Chrome profile, 1280 × 720                                | every `*.spec.ts` except `*.mobile.spec.ts` and `*.strict.spec.ts` (128 tests) |
+| `chromium-mobile`  | Pixel 7 in landscape: 863 × 360, touch, coarse pointer, DPR 2.625 | only `*.mobile.spec.ts` (19 tests)                                             |
+| `chromium-strict`  | Desktop Chrome profile, 1280 × 720; development build (port 4175) | only `*.strict.spec.ts` (4 tests)                                              |
 
 The mobile project covers what differs on a phone: touch controls (several fingers, cancel,
 slide off, pause), orientation (portrait pauses, landscape never resumes), the main flow by
@@ -42,14 +44,14 @@ code on both, and are covered on desktop.
 | #   | Area                                                                                            | Desktop                                                                                                                                                                                    | Mobile                                                                                   |
 | --- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
 | 1   | Options: navigation, validation, persistence                                                    | `options` (validation announced, reload, used by the next match, storage unavailable), `menu` (keyboard, focus)                                                                            | `flows.mobile` (Options by touch, used by the match)                                     |
-| 2   | Asset loading, failure and retry                                                                | `asset-loading` (progress, failed load, Retry, invalid spritesheet)                                                                                                                        | —                                                                                        |
+| 2   | Asset loading, failure and retry                                                                | `asset-loading` (progress, failed load, Retry, Main Menu after a failure, invalid spritesheet)                                                                                             | —                                                                                        |
 | 3   | Match start, movement, rotation, arena bounds, islands                                          | `movement`, `smoke`                                                                                                                                                                        | `touch.mobile` (sail and turn by touch)                                                  |
 | 4   | Front and side guns, damage, cooldown, score without duplication                                | `weapons` (ball counts, exact cooldowns, range, islands, arena), `enemies` (exact damage per hit, one point per kill)                                                                      | `touch.mobile` (guns by touch, with sailing)                                             |
 | 5   | Chaser and Shooter behaviour, spawn interval                                                    | `enemies`, `spawner` (cadence, distance from the player, same seed same match)                                                                                                             | —                                                                                        |
 | 6   | End by time and by death, frozen simulation, clean restart                                      | `match`                                                                                                                                                                                    | `flows.mobile` (end and Play Again)                                                      |
 | 7   | Pause, focus loss, resume without the clock moving                                              | `pause` (P/Esc, blur, hidden page, starting paused without focus or hidden, no catch-up, dialog focus, announcements)                                                                      | `orientation.mobile`, `touch.mobile` (held touch through a pause)                        |
 | 8   | Result screen and persistence after refresh                                                     | `result` (stored once, reload, Back/Forward, storage unavailable)                                                                                                                          | `flows.mobile`                                                                           |
-| 9   | Abandoning a match, repeated navigation, touch controls                                         | `result`, `game-lifecycle` (one canvas after repeated navigation)                                                                                                                          | `touch.mobile` (all touch controls), `flows.mobile`                                      |
+| 9   | Abandoning a match, repeated navigation, touch controls                                         | `result`, `game-lifecycle` (one canvas after repeated navigation; a renderer that cannot start; 2D canvas fallback), `lifecycle.strict` (under Strict Mode)                                | `touch.mobile` (all touch controls), `flows.mobile`                                      |
 | 10  | Ranking and Match History: pages, loading, empty, error                                         | `records` (stable order over every page, loading, empty, 4xx without retry, 5xx and network with retries, refresh on showing a tab, failed page never traps the player), `scenarios`       | `records.mobile` (tabs and pages by touch)                                               |
 | 11  | Registration, both tabs updated, pending submission recovered after refresh                     | `submission` (one PUT, both tabs, queued through a reload and sent at start-up, `online` event, Retry, two tabs)                                                                           | `records.mobile` (submitted match in the history; failed one sent from the pending band) |
 | 12  | Resend after a timeout without duplicates, late answers never overwriting newer data            | `scenarios` (stored but answered too late, out-of-order answers, switching scenario mid-load), `submission` (commit then failure, repeated Retry), `records` (late answer for a page left) | —                                                                                        |
@@ -66,9 +68,10 @@ only: they do not depend on the device, and the mobile project already runs the 
 
 ```bash
 npm run test:unit                     # unit tests
-npm run test:e2e                      # every end-to-end test, both projects
+npm run test:e2e                      # every end-to-end test: desktop, mobile and strict projects
 npx playwright test --project=chromium-desktop
 npx playwright test --project=chromium-mobile
+npx playwright test --project=chromium-strict # React Strict Mode (development build)
 npx playwright test visual            # only the visual regression tests (both projects)
 npx playwright test records           # any file name filter
 npx playwright test -g "out of order" # by test title
@@ -78,9 +81,42 @@ npx playwright test a11y focus        # accessibility scans and keyboard focus
 npm run perf                          # performance suite (separate, see perf/README.md)
 ```
 
-`reuseExistingServer` is on outside CI: if something already listens on port 4173 (for example
-a forgotten `vite preview`), Playwright tests that server instead of building a new one. Stop
-it first, or the tests may run against an old build.
+`reuseExistingServer` is on outside CI for both servers: if something already listens on port
+4173 (for example a forgotten `vite preview`) or 4175 (a leftover
+`vite preview --outDir dist-e2e-dev`), Playwright tests that server instead of building a new
+one. Stop it first, or the tests may run against an old build. With `CI` set, both are always
+built and started. Playwright starts every configured server in every run, even when only one
+project is selected.
+
+## React Strict Mode
+
+`main.tsx` renders the app in `<StrictMode>`, but React only mounts, unmounts and remounts
+effects in its development build; the production build the other projects test never does.
+The `chromium-strict` project (`e2e/lifecycle.strict.spec.ts`) therefore runs against
+`npm run build:e2e:dev` (`scripts/build-e2e-dev.ts`): the same e2e app, test hooks included,
+built with `NODE_ENV=development` into `dist-e2e-dev/` and served by `vite preview` on port 4175. Playwright starts this second server after the first one, in every run.
+
+Each of its tests first checks where it runs: React registers its renderer with a stand-in
+DevTools hook as a development bundle (`bundleType` 1; production reports 0). The tests then
+read `window.__pirateLifecycle` (e2e builds only), which counts the game runtimes of the page:
+constructed, initialized, torn down before their initialization finished
+(`disposedBeforeInit`), failed, destroyed, and live. They check that:
+
+- entering a match creates two runtimes, the first one torn down while PixiJS initializes, and
+  leaves one live runtime and one canvas that play with real input; leaving leaves none;
+- Main Menu, Back, leaving at once and Play Again leave no live runtime and no canvas, and
+  every runtime created has settled;
+- the end of a match writes one result, sends one submission and stores one record;
+- a match still queued when the app opens is sent once, although the effect that sends it runs
+  twice.
+
+The renderer's failure path is tested on the production build (`game-lifecycle`): with no
+WebGL, WebGPU or 2D canvas, the game screen says it could not start, no canvas or live runtime
+remains, and the menu is reachable. Without WebGL or WebGPU only, PixiJS falls back to a 2D
+canvas and the match plays: that is a fallback, not a failure, and is tested as such.
+
+Cost: the development build takes about 2 s on the reference machine, plus its server start;
+Playwright reported 2.0 min for the 151 tests, against 1.7 min for the 144 before.
 
 ## Reports, traces and screenshots
 

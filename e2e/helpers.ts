@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import type { GameStateSnapshot } from '../src/game/testHooks.ts';
+import type { GameStateSnapshot, RuntimeLifecycle } from '../src/game/testHooks.ts';
 
 /** Collects console errors/warnings, uncaught exceptions; tests assert it stays empty. */
 export function collectProblems(page: Page): string[] {
@@ -69,6 +69,11 @@ export function stepUntilHit(
     },
     [target, limit] as const,
   );
+}
+
+/** Runtime lifecycle counters of the page (constructed, initialized, destroyed, live…). */
+export function lifecycle(page: Page): Promise<RuntimeLifecycle> {
+  return page.evaluate(() => window.__pirateLifecycle!.get());
 }
 
 /** Waits for a match started from the menu or the Result screen (manual clock from the URL). */
