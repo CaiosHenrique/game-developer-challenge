@@ -135,17 +135,18 @@ The last full run kept as evidence, recorded here as it happened (not repeated s
 
 | Item             | Recorded                                                                                                    |
 | ---------------- | ----------------------------------------------------------------------------------------------------------- |
-| Date             | 13 October 2026, end-to-end suite started at 14:39 UTC                                                      |
-| Commit           | `041e795`, in a clean clone from GitHub                                                                     |
+| Date             | 14 October 2026 (UTC), end-to-end suite started at 01:22 UTC                                                |
+| Commit           | `249ee30`, in a clean clone from GitHub                                                                     |
 | Environment      | Windows 11, Node 24.21.0, npm 11.19.0, Playwright 1.64.0, Microsoft Edge 155.0.4283.45                      |
 | Setup and checks | `npm ci`, `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm run build`: passed              |
-| Unit tests       | 108 of 108 passed                                                                                           |
-| End-to-end tests | 120 of 120 passed (103 desktop, 17 mobile), none flaky or skipped, 87.9 s with 6 workers                    |
-| HTML report      | [reports/e2e-041e795.html](reports/e2e-041e795.html), the report Playwright produced in that run, unchanged |
+| Unit tests       | 133 of 133 passed                                                                                           |
+| End-to-end tests | 151 of 151 passed (128 desktop, 19 mobile, 4 strict), none flaky or skipped, 2.1 min with 6 workers         |
+| HTML report      | [reports/e2e-249ee30.html](reports/e2e-249ee30.html), the report Playwright produced in that run, unchanged |
 
 Traces and screenshots of failures are configured (see above) but none exist for this run:
-no test failed. The other files a run leaves in `playwright-report/` and `test-results/` are
-not versioned.
+no test failed. The previous recorded run (`041e795`, 108 unit and 120 end-to-end tests) is
+kept in [reports/e2e-041e795.html](reports/e2e-041e795.html). The other files a run leaves in
+`playwright-report/` and `test-results/` are not versioned.
 
 ## Test parameters
 
@@ -266,8 +267,12 @@ errors being announced (`menu`, `options`).
 - The match screen has no heading; its only heading is the pause dialog's, while it is open.
 - In the ranking and history, the pager's status (`role="status"`) changes twice when a page is
   changed (`Loading page N…`, then `Page N of M`), so both may be announced.
-- No check of zoom and reflow at 200 % or 400 %, of Windows high-contrast mode, or of
-  `prefers-reduced-motion` (the game does not read it).
+- No check of zoom and reflow at 200 % or 400 %, or of Windows high-contrast mode.
+- `prefers-reduced-motion` is read: a match started with it throws no hit splinters (read once,
+  when the match starts), and the HUD's health bar does not pulse (CSS). The hit tint and the
+  other effects (muzzle flashes, explosions, fire, sinking wrecks) are unchanged. The tests
+  (`damage-feedback`, `hit-debris`) emulate the preference with Playwright; it was not checked
+  with a real system setting.
 - Colour is not the only cue for health (the HUD also shows the number), but the health bars
   above ships are only visual.
 

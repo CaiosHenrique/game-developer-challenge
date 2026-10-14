@@ -70,9 +70,9 @@ should be reviewed.
 
 ## M5 — Audio and visual polish
 
-- **Done locally (M5-P1a): sound effects with a mute switch.** 19 of the challenge's WAV files
-  are played (no ambient loops). Their author and license are **not confirmed**, like the rest
-  of the asset pack.
+- **Done (M5-P1a, commit `742262c`, deployed): sound effects with a mute switch.** 19 of the
+  challenge's WAV files are played (no ambient loops). Their author and license are **not
+  confirmed**, like the rest of the asset pack.
 - **Use of the sounds confirmed by the project owner.** The owner confirmed directly with
   Jungle Gaming that the challenge's audio files may be used. The confirmation was verbal: no
   written license or statement is recorded, and the author and license of the WAV files remain

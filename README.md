@@ -122,6 +122,9 @@ The **Options** screen sets the two values the next matches use, saved on this d
 | Game session time           | 60 to 180 seconds, whole        |   120 s |
 | Enemy spawn time (interval) | 1 to 10 seconds, in 0.5 s steps |     5 s |
 
+Enemies arrive on that interval while fewer than six are alive (`maxAlive`): a scheduled spawn
+is skipped while six are on the water, and the next one comes on the usual cadence.
+
 A match keeps the options in effect when it started. Every other gameplay value (health,
 speeds, turn rates, weapons, cooldowns, ranges, AI, spawn rules) is in `DEFAULT_GAME_CONFIG`
 in [src/game/config.ts](src/game/config.ts); the values and the reasons behind them are in
@@ -271,27 +274,33 @@ This is the only public URL. The per-deployment URLs Vercel creates (`…-caio-t
 are protected by Vercel's login and are not meant to be shared. Every push to `main` deploys
 again, so the production URL may serve a commit newer than the one verified below.
 
-**Last verified on 13 October 2026, commit `742262c`:**
+**Last verified on 14 October 2026 (UTC), commit `249ee30`:**
 
 - **Same files as the commit:** the 88 files served by the production URL (`index.html`, the
   mock service worker, everything under `/assets/` and `/game/`, including the 19 sound files)
-  were byte-identical to a `npm run build` of `742262c` made from a clean clone. The page loads
-  the bundle `index-BBtEZnmO.js`, built from the M5 code (sound effects, hit tint, splinters),
-  which no earlier commit contains.
-- **Deployment record:** GitHub lists Vercel's latest Production deployment for `742262c` as
+  were byte-identical (SHA-256) to a `npm run build` of `249ee30` made from a clean clone. The
+  page loads the bundle `index-DyFdDsB6.js`, which contains none of the e2e-only test hooks or
+  URL parameters.
+- **Deployment record:** GitHub lists Vercel's latest Production deployment for `249ee30` as
   successful. Which deployment the production domain points to was not checked in the Vercel
   dashboard.
 - **Browser smoke test** on the production URL (Microsoft Edge, fresh isolated contexts; the
   scripts are not part of this repository), all passed:
   - the menu opens, the mock service worker registers and controls the page, `/api/health`
     answers through it (`mocked: true`) and the ranking loads (page 1 of 4);
-  - `/options` and `/result` load and reload directly, also as the first page visited, and
-    `/play` without a match returns to the menu;
-  - a real 60 s match ends (ship sunk), the Result screen shows it saved on the device and
-    submitted, and it is still shown after a reload, as is its Match History entry;
+  - `/options` and `/result` load and reload directly, and `/play` without a match returns to
+    the menu;
+  - a real match (60 s options) ends (ship sunk), the Result screen shows it saved on the
+    device and submitted, and it is still shown after a reload, as is its Match History entry;
+  - with the conditions simulated in the page: a match that becomes ready without focus starts
+    paused and Resume continues it; a renderer that cannot start (no WebGL, WebGPU or 2D canvas)
+    shows its message and Main Menu takes a real click; after a failed asset load, Retry and
+    Main Menu take real clicks;
   - sound: no audio context before Play and one, running, after it; the 19 sound files load
     (HTTP 200); real shots produce a non-silent output signal, and the mute switch in the pause
     dialog silences it and is saved (measured, not listened to);
-  - no console error or warning, page error or failed request;
-  - caching: `/` and the sound files `max-age=0, must-revalidate`, `/mockServiceWorker.js`
-    `no-cache`, `/assets/*` immutable; `/api/*` without the worker answers 404, not the page.
+  - no console error or warning, page error or failed request, except the asset request the
+    check makes fail on purpose;
+  - caching: `/index.html` and `/mockServiceWorker.js` `no-cache`, `/assets/*` immutable,
+    `/game/*` (sounds included) `max-age=0, must-revalidate`; `/api/*` without the worker
+    answers 404, not the page.
