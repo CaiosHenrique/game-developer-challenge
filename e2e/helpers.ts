@@ -12,6 +12,14 @@ export function collectProblems(page: Page): string[] {
 }
 
 /**
+ * How long a match may take to be on screen (assets, then PixiJS initialization). Usually well
+ * under a second, but measured up to 5.3 s for a tab left behind another one while six workers
+ * run at once (the browser throttles that tab), so the 5 s default of `expect` is too short.
+ * A match that never starts still fails.
+ */
+const MATCH_READY_TIMEOUT = 15_000;
+
+/**
  * Opens the game on the manual (test-controlled) clock: `clock=manual` makes every match on
  * the page, including ones started with Play Again, begin at tick 0 without advancing.
  */
@@ -20,7 +28,9 @@ export async function startGame(page: Page, query = ''): Promise<void> {
   params.set('clock', 'manual');
   await page.goto(`/?${params.toString()}`);
   await page.getByRole('button', { name: 'Play' }).click();
-  await expect(page.locator('[data-testid="game-host"] canvas')).toHaveCount(1);
+  await expect(page.locator('[data-testid="game-host"] canvas')).toHaveCount(1, {
+    timeout: MATCH_READY_TIMEOUT,
+  });
   await page.waitForFunction(() => window.__pirateTest !== undefined);
   await page.evaluate(() => window.__pirateTest!.setManualClock(true));
 }
@@ -78,7 +88,9 @@ export function lifecycle(page: Page): Promise<RuntimeLifecycle> {
 
 /** Waits for a match started from the menu or the Result screen (manual clock from the URL). */
 export async function waitForMatch(page: Page): Promise<GameStateSnapshot> {
-  await expect(page.locator('[data-testid="game-host"] canvas')).toHaveCount(1);
+  await expect(page.locator('[data-testid="game-host"] canvas')).toHaveCount(1, {
+    timeout: MATCH_READY_TIMEOUT,
+  });
   await page.waitForFunction(() => window.__pirateTest?.getState().phase === 'running');
   return getState(page);
 }

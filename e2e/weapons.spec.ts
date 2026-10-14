@@ -211,24 +211,38 @@ test.describe('player weapons', () => {
   });
 
   test('projectile and effect sprites are released and reused', async ({ page }) => {
+    /**
+     * Effects fade in render (real) time, while the simulation only moves with `step`. Each
+     * step call draws its events at once, so how many effects are on screen together depends
+     * on whether the previous ones have faded: waiting for that (no effect left) before the
+     * next step call makes every barrage need exactly the same sprites.
+     */
+    const effectsFaded = () =>
+      expect.poll(async () => (await getState(page)).render!.effects).toBe(0);
     const barrage = async () => {
       for (const key of ['Space', 'KeyQ', 'KeyE']) await page.keyboard.down(key);
-      await step(page, 5 * STEPS_PER_SECOND);
+      const fired = (await step(page, 5 * STEPS_PER_SECOND)).render!;
       for (const key of ['Space', 'KeyQ', 'KeyE']) await page.keyboard.up(key);
+      await effectsFaded();
       await step(page, 2 * STEPS_PER_SECOND); // every ball expires or hits something
-      await page.waitForTimeout(600); // render-time effects fade out
-      return (await getState(page)).render!;
+      await effectsFaded();
+      return { fired, end: (await getState(page)).render! };
     };
 
     const first = await barrage();
-    expect(first.projectileSprites).toBe(0);
-    expect(first.effects).toBe(0);
-    expect(first.pooledProjectileSprites).toBeGreaterThan(0);
+    expect(first.fired.effects).toBeGreaterThan(0);
+    expect(first.end.projectileSprites).toBe(0);
+    expect(first.end.effects).toBe(0);
+    expect(first.end.pooledProjectileSprites).toBeGreaterThan(0);
+    expect(first.end.pooledEffects).toBeGreaterThan(0);
 
     const second = await barrage();
-    expect(second.projectileSprites).toBe(0);
-    expect(second.effects).toBe(0);
-    // The same pooled sprites were reused: no new display objects were created.
-    expect(second.dynamicChildren).toBe(first.dynamicChildren);
+    // The same barrage, so the same demand for sprites...
+    expect(second.fired.effects).toBe(first.fired.effects);
+    expect(second.fired.projectileSprites).toBe(first.fired.projectileSprites);
+    expect(second.end.projectileSprites).toBe(0);
+    expect(second.end.effects).toBe(0);
+    // ...served by the pooled sprites: no new display objects were created.
+    expect(second.end.dynamicChildren).toBe(first.end.dynamicChildren);
   });
 });
